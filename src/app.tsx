@@ -95,7 +95,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState }) => {
 			// Skip redirect check if on login or register page
 			if (location.pathname === '/login' || location.pathname === '/register') {
 				if (token) {
-					history.replace('/dashboard');
+					history.replace('/home');
 				}
 				return;
 			}
@@ -106,9 +106,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState }) => {
 				return;
 			}
 
-			// Redirect root to dashboard
+			// Redirect root to home
 			if (location.pathname === '/') {
-				history.replace('/dashboard');
+				history.replace('/home');
 			}
 		},
 

@@ -1,0 +1,96 @@
+.container {
+	padding: 24px;
+	max-width: 1400px;
+	margin: 0 auto;
+}
+
+.header {
+	margin-bottom: 24px;
+
+	h1 {
+		margin: 0;
+		font-size: 28px;
+		font-weight: 600;
+		color: #222;
+	}
+}
+
+.filters {
+	margin-bottom: 24px;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.card {
+	transition: all 0.3s ease;
+	border-radius: 8px;
+	overflow: hidden;
+
+	&:hover {
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+		transform: translateY(-2px);
+	}
+
+	:global(.ant-card-body) {
+		padding: 16px;
+	}
+}
+
+.info {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin: 12px 0;
+	padding: 8px 0;
+	border-top: 1px solid #f0f0f0;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.quantity {
+	font-size: 13px;
+	color: #666;
+
+	strong {
+		color: #222;
+		font-size: 14px;
+	}
+}
+
+.status {
+	display: flex;
+	gap: 4px;
+}
+
+.pagination {
+	display: flex;
+	justify-content: center;
+	margin-top: 32px;
+
+	:global(.ant-pagination) {
+		margin: 0;
+	}
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: 12px;
+	}
+
+	.header {
+		h1 {
+			font-size: 20px;
+		}
+	}
+
+	.filters {
+		flex-direction: column;
+		align-items: stretch;
+
+		:global(input),
+		:global(.ant-select) {
+			width: 100% !important;
+		}
+	}
+}

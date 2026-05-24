@@ -29,6 +29,39 @@ export default [
 	},
 
 	///////////////////////////////////
+	// EQUIPMENT RENTAL SYSTEM
+	{
+		path: '/home',
+		name: 'Thiết Bị',
+		component: './Home',
+		icon: 'ShoppingCartOutlined',
+	},
+	{
+		path: '/equipment/:id',
+		name: 'Chi Tiết Thiết Bị',
+		component: './EquipmentDetail',
+		hideInMenu: true,
+	},
+	{
+		path: '/my-requests',
+		name: 'Yêu Cầu Của Tôi',
+		component: './MyRequests',
+		icon: 'FileTextOutlined',
+	},
+	{
+		path: '/notifications',
+		name: 'Thông Báo',
+		component: './Notifications',
+		icon: 'BellOutlined',
+	},
+	{
+		path: '/profile',
+		name: 'Hồ Sơ Cá Nhân',
+		component: './Profile',
+		icon: 'UserOutlined',
+	},
+
+	///////////////////////////////////
 	// DEFAULT MENU
 	{
 		path: '/dashboard',

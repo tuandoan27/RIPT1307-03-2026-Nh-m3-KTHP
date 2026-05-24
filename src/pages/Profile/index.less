@@ -1,0 +1,29 @@
+.container {
+	padding: 24px;
+	max-width: 900px;
+	margin: 0 auto;
+
+	:global(.ant-card) {
+		border-radius: 8px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	}
+
+	:global(.ant-descriptions) {
+		margin-bottom: 0;
+	}
+
+	:global(.ant-statistic-title) {
+		font-size: 13px;
+		color: #666;
+	}
+
+	:global(.ant-statistic) {
+		text-align: center;
+	}
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: 12px;
+	}
+}

@@ -1,5 +1,5 @@
 import Footer from '@/components/Footer';
-import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined, UserOutlined, IdcardOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Card, message } from 'antd';
 import React, { useState } from 'react';
 import { Link, history } from 'umi';
@@ -17,7 +17,8 @@ const Register: React.FC = () => {
 		try {
 			// Hit the mock register endpoint
 			const response = await axios.post('/register', {
-				username: values.username,
+				fullName: values.fullName,
+				studentId: values.studentId,
 				email: values.email,
 				password: values.password,
 			});
@@ -26,7 +27,7 @@ const Register: React.FC = () => {
 				message.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
 				history.push('/login');
 			} else {
-				setErrorMsg('Đăng ký tài khoản thất bại. Vui lòng thử lại.');
+				setErrorMsg(response.data?.message || 'Đăng ký tài khoản thất bại. Vui lòng thử lại.');
 			}
 		} catch (error: any) {
 			setErrorMsg(
@@ -74,15 +75,31 @@ const Register: React.FC = () => {
 							requiredMark={false}
 						>
 							<Form.Item
-								name='username'
+								name='fullName'
 								rules={[
-									{ required: true, message: 'Vui lòng nhập tên đăng nhập!' },
-									{ min: 3, message: 'Tên đăng nhập phải có ít nhất 3 ký tự!' }
+									{ required: true, message: 'Vui lòng nhập họ tên!' },
+									{ min: 5, message: 'Họ tên phải có ít nhất 5 ký tự!' },
+									{ max: 100, message: 'Họ tên không được quá 100 ký tự!' }
 								]}
 							>
 								<Input
-									placeholder='Tên đăng nhập'
+									placeholder='Họ và tên'
 									prefix={<UserOutlined className={styles.prefixIcon} />}
+									size='large'
+									style={{ borderRadius: '6px' }}
+								/>
+							</Form.Item>
+
+							<Form.Item
+								name='studentId'
+								rules={[
+									{ required: true, message: 'Vui lòng nhập mã sinh viên!' },
+									{ pattern: /^[A-Z0-9]{8,12}$/, message: 'Mã sinh viên không hợp lệ!' }
+								]}
+							>
+								<Input
+									placeholder='Mã sinh viên (ví dụ: K20CT001)'
+									prefix={<IdcardOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
 								/>
@@ -91,12 +108,12 @@ const Register: React.FC = () => {
 							<Form.Item
 								name='email'
 								rules={[
-									{ required: true, message: 'Vui lòng nhập địa chỉ email!' },
+									{ required: true, message: 'Vui lòng nhập email!' },
 									{ type: 'email', message: 'Email không đúng định dạng!' }
 								]}
 							>
 								<Input
-									placeholder='Địa chỉ Email'
+									placeholder='Email (ví dụ: student@ptit.edu.vn)'
 									prefix={<MailOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
@@ -119,7 +136,7 @@ const Register: React.FC = () => {
 							</Form.Item>
 
 							<Form.Item
-								name='confirm'
+								name='confirmPassword'
 								dependencies={['password']}
 								rules={[
 									{ required: true, message: 'Vui lòng xác nhận mật khẩu!' },
@@ -141,9 +158,9 @@ const Register: React.FC = () => {
 								/>
 							</Form.Item>
 
-							<div style={{ marginBottom: 24, textAlign: 'right' }}>
+							<div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
 								<Link to='/login' style={{ fontSize: '14px', fontWeight: 500 }}>
-									Đã có tài khoản? Đăng nhập
+									Đã có tài khoản? Đăng nhập ngay
 								</Link>
 							</div>
 

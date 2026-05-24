@@ -1,0 +1,23 @@
+.container {
+	padding: 24px;
+	max-width: 1200px;
+	margin: 0 auto;
+
+	:global(.ant-card) {
+		border-radius: 8px;
+	}
+
+	:global(.ant-table) {
+		font-size: 13px;
+	}
+
+	:global(.ant-table-cell) {
+		padding: 12px !important;
+	}
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: 12px;
+	}
+}

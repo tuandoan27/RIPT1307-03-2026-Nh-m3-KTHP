@@ -1,5 +1,5 @@
 import Footer from '@/components/Footer';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Card, message } from 'antd';
 import React, { useState } from 'react';
 import { Link, history, useModel } from 'umi';
@@ -17,24 +17,29 @@ const Login: React.FC = () => {
 		setSubmitting(true);
 		try {
 			// Hit the mock login endpoint
-			const response = await axios.post('/api/login/account', {
-	            username: values.username,
+			const response = await axios.post('/login', {
+	            email: values.email,
 	            password: values.password,
-	            type: 'account',
 			});
 
 			if (response.data?.status === 'ok') {
-				// Save mock token
-				localStorage.setItem('token', 'mock-jwt-token-xyz');
+				// Save token
+				localStorage.setItem('token', response.data?.token || 'mock-jwt-token-xyz');
+				localStorage.setItem('userRole', response.data?.role || 'student');
 				message.success('Đăng nhập thành công!');
 
 				// Refresh initial state to fetch user info and permissions
 				await refresh();
 
-				// Redirect to dashboard
-				history.push('/dashboard');
+				// Redirect based on role
+				const role = response.data?.role || 'student';
+				if (role === 'admin') {
+					history.push('/admin/dashboard');
+				} else {
+					history.push('/home');
+				}
 			} else {
-				setErrorMsg('Tên đăng nhập hoặc mật khẩu không chính xác.');
+				setErrorMsg(response.data?.message || 'Email hoặc mật khẩu không chính xác.');
 			}
 		} catch (error: any) {
 			setErrorMsg(
@@ -82,15 +87,15 @@ const Login: React.FC = () => {
 							requiredMark={false}
 						>
 							<Form.Item
-								name='username'
+								name='email'
 								rules={[
-									{ required: true, message: 'Vui lòng nhập tên đăng nhập!' },
-									{ min: 3, message: 'Tên đăng nhập phải có ít nhất 3 ký tự!' }
+									{ required: true, message: 'Vui lòng nhập email!' },
+									{ type: 'email', message: 'Email không đúng định dạng!' }
 								]}
 							>
 								<Input
-									placeholder='Tên đăng nhập (Thử: admin hoặc user)'
-									prefix={<UserOutlined className={styles.prefixIcon} />}
+									placeholder='Email (ví dụ: student@ptit.edu.vn)'
+									prefix={<MailOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
 								/>
@@ -103,7 +108,7 @@ const Login: React.FC = () => {
 								]}
 							>
 								<Input.Password
-									placeholder='Mật khẩu (Thử: ant.design)'
+									placeholder='Mật khẩu'
 									prefix={<LockOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
@@ -112,7 +117,7 @@ const Login: React.FC = () => {
 
 							<div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 								<span style={{ color: '#8c8c8c', fontSize: '13px' }}>
-									Mẹo: <b>user</b> / <b>ant.design</b>
+									Mẹo: <b>student@ptit.edu.vn</b> / <b>123456</b>
 								</span>
 								<Link to='/register' style={{ fontSize: '14px', fontWeight: 500 }}>
 									Đăng ký tài khoản
