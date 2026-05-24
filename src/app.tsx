@@ -6,16 +6,13 @@ import type { RequestConfig, RunTimeLayoutConfig } from 'umi';
 import { getIntl, getLocale, history } from 'umi';
 import type { RequestOptionsInit, ResponseError } from 'umi-request';
 import ErrorBoundary from './components/ErrorBoundary';
-// import LoadingPage from './components/Loading';
-import { OIDCBounder } from './components/OIDCBounder';
-import { unCheckPermissionPaths } from './components/OIDCBounder/constant';
 import OneSignalBounder from './components/OneSignalBounder';
 import TechnicalSupportBounder from './components/TechnicalSupportBounder';
 import NotAccessible from './pages/exception/403';
 import NotFoundContent from './pages/exception/404';
 import type { IInitialState } from './services/base/typing';
 import './styles/global.less';
-import { currentRole } from './utils/ip';
+import axios from '@/utils/axios';
 
 /**  loading */
 export const initialStateConfig = {
@@ -24,11 +21,23 @@ export const initialStateConfig = {
 
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
- * // Tobe removed
+ * Fetch initial user state if JWT exists in localStorage
  * */
 export async function getInitialState(): Promise<IInitialState> {
+	const token = localStorage.getItem('token');
+	if (token) {
+		try {
+			const response = await axios.get('/currentUser');
+			return {
+				currentUser: response.data,
+				permissionLoading: false,
+			};
+		} catch (error) {
+			localStorage.removeItem('token');
+		}
+	}
 	return {
-		permissionLoading: true,
+		permissionLoading: false,
 	};
 }
 
@@ -69,11 +78,9 @@ export const request: RequestConfig = {
 export const layout: RunTimeLayoutConfig = ({ initialState }) => {
 	return {
 		unAccessible: (
-			<OIDCBounder>
-				<TechnicalSupportBounder>
-					<NotAccessible />
-				</TechnicalSupportBounder>
-			</OIDCBounder>
+			<TechnicalSupportBounder>
+				<NotAccessible />
+			</TechnicalSupportBounder>
 		),
 		noFound: <NotFoundContent />,
 		rightContentRender: () => <RightContent />,
@@ -82,19 +89,26 @@ export const layout: RunTimeLayoutConfig = ({ initialState }) => {
 		footerRender: () => <Footer />,
 
 		onPageChange: () => {
-			if (initialState?.currentUser) {
-				const { location } = history;
-				const isUncheckPath = unCheckPermissionPaths.some((path) => window.location.pathname.includes(path));
+			const { location } = history;
+			const token = localStorage.getItem('token');
 
-				if (location.pathname === '/') {
+			// Skip redirect check if on login or register page
+			if (location.pathname === '/login' || location.pathname === '/register') {
+				if (token) {
 					history.replace('/dashboard');
-				} else if (
-					!isUncheckPath &&
-					currentRole &&
-					initialState?.authorizedPermissions?.length &&
-					!initialState?.authorizedPermissions?.find((item) => item.rsname === currentRole)
-				)
-					history.replace('/403');
+				}
+				return;
+			}
+
+			// If not logged in, redirect to login page
+			if (!token) {
+				history.replace('/login');
+				return;
+			}
+
+			// Redirect root to dashboard
+			if (location.pathname === '/') {
+				history.replace('/dashboard');
 			}
 		},
 
@@ -114,13 +128,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState }) => {
 		),
 
 		childrenRender: (dom) => (
-			<OIDCBounder>
-				<ErrorBoundary>
-					{/* <TechnicalSupportBounder> */}
-					<OneSignalBounder>{dom}</OneSignalBounder>
-					{/* </TechnicalSupportBounder> */}
-				</ErrorBoundary>
-			</OIDCBounder>
+			<ErrorBoundary>
+				<OneSignalBounder>{dom}</OneSignalBounder>
+			</ErrorBoundary>
 		),
 		menuHeaderRender: undefined,
 		...initialState?.settings,

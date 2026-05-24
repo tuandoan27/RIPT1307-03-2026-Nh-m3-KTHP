@@ -1,4 +1,16 @@
-﻿export default [
+export default [
+	{
+		path: '/login',
+		layout: false,
+		name: 'login',
+		component: './user/Login',
+	},
+	{
+		path: '/register',
+		layout: false,
+		name: 'register',
+		component: './user/Register',
+	},
 	{
 		path: '/user',
 		layout: false,

@@ -1,5 +1,4 @@
 import Footer from '@/components/Footer';
-import { OIDCBounder } from '@/components/OIDCBounder';
 import { landingUrl } from '@/services/base/constant';
 import { currentRole } from '@/utils/ip';
 import { GlobalOutlined, LogoutOutlined } from '@ant-design/icons';
@@ -8,14 +7,18 @@ import { useEffect } from 'react';
 import { history, useModel } from 'umi';
 
 const NotAccessible = () => {
-	const { initialState } = useModel('@@initialState');
+	const { initialState, setInitialState } = useModel('@@initialState');
 
 	useEffect(() => {
 		if (currentRole && initialState?.authorizedPermissions?.find((item) => item.rsname === currentRole))
 			history.replace('/dashboard');
 	}, [initialState?.authorizedPermissions]);
 
-	const onLogout = (): void => OIDCBounder?.getActions()?.dangXuat();
+	const onLogout = (): void => {
+		localStorage.removeItem('token');
+		setInitialState((s) => ({ ...s, currentUser: undefined }));
+		history.replace('/login');
+	};
 
 	return (
 		<div

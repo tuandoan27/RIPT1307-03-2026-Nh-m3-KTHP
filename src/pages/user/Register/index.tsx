@@ -1,40 +1,32 @@
 import Footer from '@/components/Footer';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Card, message } from 'antd';
 import React, { useState } from 'react';
-import { Link, history, useModel } from 'umi';
+import { Link, history } from 'umi';
 import axios from '@/utils/axios';
-import styles from './index.less';
+import styles from '../Login/index.less';
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
-	const { refresh } = useModel('@@initialState');
 	const [form] = Form.useForm();
 
 	const handleSubmit = async (values: any) => {
 		setErrorMsg(null);
 		setSubmitting(true);
 		try {
-			// Hit the mock login endpoint
-			const response = await axios.post('/api/login/account', {
-	            username: values.username,
-	            password: values.password,
-	            type: 'account',
+			// Hit the mock register endpoint
+			const response = await axios.post('/register', {
+				username: values.username,
+				email: values.email,
+				password: values.password,
 			});
 
-			if (response.data?.status === 'ok') {
-				// Save mock token
-				localStorage.setItem('token', 'mock-jwt-token-xyz');
-				message.success('Đăng nhập thành công!');
-
-				// Refresh initial state to fetch user info and permissions
-				await refresh();
-
-				// Redirect to dashboard
-				history.push('/dashboard');
+			if (response.data?.status === 'ok' || response.data?.success) {
+				message.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
+				history.push('/login');
 			} else {
-				setErrorMsg('Tên đăng nhập hoặc mật khẩu không chính xác.');
+				setErrorMsg('Đăng ký tài khoản thất bại. Vui lòng thử lại.');
 			}
 		} catch (error: any) {
 			setErrorMsg(
@@ -63,7 +55,7 @@ const Login: React.FC = () => {
 				<div className={styles.main}>
 					<Card bordered={false} bodyStyle={{ padding: 0 }}>
 						<h3 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: '#333' }}>
-							Đăng Nhập Hệ Thống
+							Đăng Ký Tài Khoản Mới
 						</h3>
 
 						{errorMsg && (
@@ -89,12 +81,28 @@ const Login: React.FC = () => {
 								]}
 							>
 								<Input
-									placeholder='Tên đăng nhập (Thử: admin hoặc user)'
+									placeholder='Tên đăng nhập'
 									prefix={<UserOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
 								/>
 							</Form.Item>
+
+							<Form.Item
+								name='email'
+								rules={[
+									{ required: true, message: 'Vui lòng nhập địa chỉ email!' },
+									{ type: 'email', message: 'Email không đúng định dạng!' }
+								]}
+							>
+								<Input
+									placeholder='Địa chỉ Email'
+									prefix={<MailOutlined className={styles.prefixIcon} />}
+									size='large'
+									style={{ borderRadius: '6px' }}
+								/>
+							</Form.Item>
+
 							<Form.Item
 								name='password'
 								rules={[
@@ -103,19 +111,39 @@ const Login: React.FC = () => {
 								]}
 							>
 								<Input.Password
-									placeholder='Mật khẩu (Thử: ant.design)'
+									placeholder='Mật khẩu'
 									prefix={<LockOutlined className={styles.prefixIcon} />}
 									size='large'
 									style={{ borderRadius: '6px' }}
 								/>
 							</Form.Item>
 
-							<div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-								<span style={{ color: '#8c8c8c', fontSize: '13px' }}>
-									Mẹo: <b>user</b> / <b>ant.design</b>
-								</span>
-								<Link to='/register' style={{ fontSize: '14px', fontWeight: 500 }}>
-									Đăng ký tài khoản
+							<Form.Item
+								name='confirm'
+								dependencies={['password']}
+								rules={[
+									{ required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+									({ getFieldValue }) => ({
+										validator(_, value) {
+											if (!value || getFieldValue('password') === value) {
+												return Promise.resolve();
+											}
+											return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+										},
+									}),
+								]}
+							>
+								<Input.Password
+									placeholder='Xác nhận mật khẩu'
+									prefix={<LockOutlined className={styles.prefixIcon} />}
+									size='large'
+									style={{ borderRadius: '6px' }}
+								/>
+							</Form.Item>
+
+							<div style={{ marginBottom: 24, textAlign: 'right' }}>
+								<Link to='/login' style={{ fontSize: '14px', fontWeight: 500 }}>
+									Đã có tài khoản? Đăng nhập
 								</Link>
 							</div>
 
@@ -134,7 +162,7 @@ const Login: React.FC = () => {
 										boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
 									}}
 								>
-									Đăng Nhập
+									Đăng Ký
 								</Button>
 							</Form.Item>
 						</Form>
@@ -149,4 +177,4 @@ const Login: React.FC = () => {
 	);
 };
 
-export default Login;
+export default Register;
