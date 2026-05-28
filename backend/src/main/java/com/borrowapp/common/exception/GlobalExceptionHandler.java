@@ -45,6 +45,7 @@ public class GlobalExceptionHandler {
     // 500 - lỗi không mong đợi
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGeneral(Exception ex) {
+        ex.printStackTrace();
         return ResponseUtil.error(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống, vui lòng thử lại sau");
     }
 }
