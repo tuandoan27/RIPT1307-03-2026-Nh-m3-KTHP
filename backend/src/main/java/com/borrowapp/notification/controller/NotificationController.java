@@ -1,3 +1,4 @@
+// com/borrowapp/notification/controller/NotificationController.java
 package com.borrowapp.notification.controller;
 
 import com.borrowapp.common.exception.ResourceNotFoundException;
@@ -16,12 +17,13 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Notification API – dành cho người dùng đã đăng nhập.
  *
- * Base path: /api/notifications
+ * Endpoints (khớp spec):
+ *   GET /api/notifications              – danh sách + unreadCount + phân trang
+ *   PUT /api/notifications/{id}/read    – đánh dấu 1 thông báo đã đọc
+ *   PUT /api/notifications/read-all     – đánh dấu tất cả đã đọc
  *
- * Endpoints:
- *  - GET  /api/notifications                – danh sách thông báo có phân trang
- *  - PUT  /api/notifications/{id}/read      – đánh dấu 1 thông báo là đã đọc
- *  - PUT  /api/notifications/read-all       – đánh dấu tất cả là đã đọc
+ * Principal trong project Tuấn là email (JwtAuthFilter set principal = email),
+ * nên controller resolve userId qua UserRepository.
  */
 @RestController
 @RequestMapping("/api/notifications")
@@ -30,63 +32,45 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationService service;
-    private final UserRepository       userRepository;
+    private final UserRepository      userRepository;
 
     /**
-     * GET /api/notifications?page=1&pageSize=10
-     *
-     * Trả về danh sách notification của user hiện tại, kèm unreadCount và
-     * thông tin phân trang.
-     *
-     * Lưu ý: page bắt đầu từ 1 để đồng nhất với các endpoint khác của project.
-     * NotificationService dùng zero-based PageRequest nên cần trừ 1 khi gọi.
+     * GET /api/notifications?page=0&pageSize=10
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<NotificationBellResponse>> getMyNotifications(
-            @RequestParam(defaultValue = "1")  int page,
+    public ResponseEntity<ApiResponse<NotificationBellResponse>> getNotifications(
+            @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "10") int pageSize) {
 
-        Long userId = getCurrentUserId();
-        NotificationBellResponse data =
-                service.getBell(userId, Math.max(page - 1, 0), pageSize);
+        Long currentUserId = currentUserId();
+        NotificationBellResponse data = service.getBell(currentUserId, page, pageSize);
         return ResponseUtil.success("", data);
     }
 
     /**
      * PUT /api/notifications/{id}/read
-     * Đánh dấu một notification cụ thể là đã đọc.
      */
     @PutMapping("/{id}/read")
     public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
-        Long userId = getCurrentUserId();
-        service.markAsRead(userId, id);
+        service.markAsRead(currentUserId(), id);
         return ResponseUtil.success("Đã đánh dấu thông báo là đã đọc");
     }
 
     /**
      * PUT /api/notifications/read-all
-     * Đánh dấu tất cả notification của user hiện tại là đã đọc.
      */
     @PutMapping("/read-all")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
-        Long userId = getCurrentUserId();
-        service.markAllAsRead(userId);
+        service.markAllAsRead(currentUserId());
         return ResponseUtil.success("Đã đánh dấu tất cả thông báo là đã đọc");
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    // ─── Helpers ────────────────────────────────────────────────────────────
 
-    /**
-     * Trong project này, principal name = email (set bởi JwtAuthFilter).
-     * Lookup user qua UserRepository để lấy ID.
-     */
-    private Long getCurrentUserId() {
-        String email = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Không tìm thấy người dùng"));
-        return user.getId();
+    private Long currentUserId() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User u = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        return u.getId();
     }
 }

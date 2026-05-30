@@ -1,3 +1,4 @@
+// com/borrowapp/activity/controller/ActivityLogController.java
 package com.borrowapp.activity.controller;
 
 import com.borrowapp.activity.dto.ActivityLogFilterRequest;
@@ -15,10 +16,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Admin API – xem activity logs.
  * GET /api/activity-logs
  * Query params: userId, action, targetType, targetId, from, to, page, pageSize
  *
- * Chỉ ADMIN xem được. Không có POST/PUT/DELETE – activity log là bất biến.
+ * Log entries chỉ đọc – không có POST/PUT/DELETE.
  */
 @RestController
 @RequestMapping("/api/activity-logs")
@@ -33,7 +35,6 @@ public class ActivityLogController {
             ActivityLogFilterRequest filter) {
 
         Page<ActivityLogResponse> page = service.getLogs(filter);
-
         PageResponse<ActivityLogResponse> data = PageResponse.<ActivityLogResponse>builder()
                 .items(page.getContent())
                 .total(page.getTotalElements())

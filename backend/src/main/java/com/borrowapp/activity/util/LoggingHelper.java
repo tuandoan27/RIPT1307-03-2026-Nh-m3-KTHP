@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Cách dùng trong các service khác:
  * <pre>
  * loggingHelper.log(currentUser.getId(), currentUser.getFullName(),
- * ActivityLogAction.REQUEST_APPROVED, "REQUEST", request.getId(),
+ * ActivityLogAction.APPROVE_REQUEST, "REQUEST", request.getId(),
  * Map.of("borrower", request.getUser().getEmail(),
  * "device",   request.getDevice().getName()));
  * </pre>

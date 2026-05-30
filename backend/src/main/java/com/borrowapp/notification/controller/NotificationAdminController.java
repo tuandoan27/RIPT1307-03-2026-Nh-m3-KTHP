@@ -1,3 +1,4 @@
+// com/borrowapp/notification/controller/NotificationAdminController.java
 package com.borrowapp.notification.controller;
 
 import com.borrowapp.common.response.ApiResponse;
@@ -27,47 +28,44 @@ public class NotificationAdminController {
     private final NotificationService service;
 
     /**
-     * GET /api/admin/notifications/failed-emails?page=1&pageSize=20
+     * GET /api/admin/notifications/failed-emails?page=0&pageSize=20
      * Xem danh sách email gửi thất bại có phân trang.
      */
     @GetMapping("/failed-emails")
     public ResponseEntity<ApiResponse<PageResponse<NotificationLogResponse>>> getFailedEmails(
-            @RequestParam(defaultValue = "1")  int page,
+            @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int pageSize) {
 
-        Page<NotificationLogResponse> result =
-                service.getFailedLogs(Math.max(page - 1, 0), pageSize);
-
+        Page<NotificationLogResponse> result = service.getFailedLogs(page, pageSize);
         PageResponse<NotificationLogResponse> data = PageResponse.<NotificationLogResponse>builder()
                 .items(result.getContent())
                 .total(result.getTotalElements())
-                .page(page)
-                .pageSize(pageSize)
+                .page(result.getNumber())
+                .pageSize(result.getSize())
                 .build();
         return ResponseUtil.success("", data);
     }
 
     /**
      * POST /api/admin/notifications/retry-email/{id}
-     * Retry gửi lại 1 email cụ thể.
+     * Retry gửi lại 1 email cụ thể theo NotificationLog ID.
      */
     @PostMapping("/retry-email/{id}")
     public ResponseEntity<ApiResponse<Void>> retryEmail(@PathVariable Long id) {
         service.retryEmail(id);
-        return ResponseUtil.success("Đã đưa email vào hàng đợi retry");
+        return ResponseUtil.success("Email retry queued successfully");
     }
 
     /**
      * POST /api/admin/notifications/retry-all-failed
-     * Retry toàn bộ email FAILED (tối đa 100 bản ghi mỗi lần gọi).
+     * Retry toàn bộ email FAILED (tối đa 100 bản ghi/lần).
      */
     @PostMapping("/retry-all-failed")
-    public ResponseEntity<ApiResponse<Map<String, Long>>> retryAllFailed() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> retryAllFailed() {
         Page<NotificationLogResponse> failedPage = service.getFailedLogs(0, 100);
         failedPage.getContent().forEach(l -> service.retryEmail(l.getId()));
-
         return ResponseUtil.success(
-                "Đã đưa " + failedPage.getTotalElements() + " email vào hàng đợi retry",
+                failedPage.getTotalElements() + " email(s) queued for retry",
                 Map.of("queued", failedPage.getTotalElements())
         );
     }

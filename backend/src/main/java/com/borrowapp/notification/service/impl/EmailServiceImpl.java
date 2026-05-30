@@ -1,7 +1,6 @@
 package com.borrowapp.notification.service.impl;
 
 import com.borrowapp.activity.util.LoggingHelper;
-import com.borrowapp.common.exception.ResourceNotFoundException;
 import com.borrowapp.common.constants.ActivityLogAction;
 import com.borrowapp.notification.entity.NotificationLog;
 import com.borrowapp.notification.enums.NotificationLogStatus;
@@ -56,7 +55,7 @@ public class EmailServiceImpl implements EmailService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void retryAsync(Long notificationLogId) {
         NotificationLog nlog = logRepo.findById(notificationLogId)
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new IllegalArgumentException(
                         "NotificationLog not found: " + notificationLogId));
 
         nlog.markRetrying();

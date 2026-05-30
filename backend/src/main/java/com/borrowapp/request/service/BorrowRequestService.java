@@ -3,25 +3,19 @@ package com.borrowapp.request.service;
 
 import com.borrowapp.activity.util.LoggingHelper;
 import com.borrowapp.common.constants.ActivityLogAction;
-import com.borrowapp.notification.enums.NotificationType;
-import com.borrowapp.notification.service.NotificationService;
-import com.borrowapp.request.dto.BorrowRequestListItemResponse;
-import com.borrowapp.common.response.PageResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import com.borrowapp.common.constants.RequestStatus;
-import com.borrowapp.common.exception.BadRequestException;
-import com.borrowapp.common.exception.ResourceNotFoundException;
-import com.borrowapp.common.utils.TransitionValidator;
 import com.borrowapp.common.constants.Role;
+import com.borrowapp.common.exception.BadRequestException;
 import com.borrowapp.common.exception.ForbiddenException;
-import com.borrowapp.request.dto.BorrowRequestDetailResponse;
+import com.borrowapp.common.exception.ResourceNotFoundException;
+import com.borrowapp.common.response.PageResponse;
+import com.borrowapp.common.utils.TransitionValidator;
 import com.borrowapp.equipment.entity.Equipment;
 import com.borrowapp.equipment.repository.EquipmentRepository;
+import com.borrowapp.notification.enums.NotificationType;
+import com.borrowapp.notification.service.NotificationService;
+import com.borrowapp.request.dto.BorrowRequestDetailResponse;
+import com.borrowapp.request.dto.BorrowRequestListItemResponse;
 import com.borrowapp.request.dto.BorrowRequestResponse;
 import com.borrowapp.request.dto.CreateBorrowRequestRequest;
 import com.borrowapp.request.dto.RejectRequestBody;
@@ -30,25 +24,33 @@ import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BorrowRequestService {
 
     private final BorrowRequestRepository borrowRequestRepository;
-    private final EquipmentRepository equipmentRepository;
-    private final UserRepository userRepository;
+    private final EquipmentRepository     equipmentRepository;
+    private final UserRepository          userRepository;
 
-    // ── Integrations: Activity log + Async email/notification ──────────────
-    private final LoggingHelper        loggingHelper;
-    private final NotificationService  notificationService;
+    // ─── Tích hợp Notification + ActivityLog ─────────────────────────────────
+    private final NotificationService     notificationService;
+    private final LoggingHelper           loggingHelper;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -103,6 +105,9 @@ public class BorrowRequestService {
         return BorrowRequestResponse.fromEntity(borrowRequestRepository.save(borrowRequest));
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+     * APPROVE  — email + log
+     * ════════════════════════════════════════════════════════════════════ */
     @Transactional
     public void approveRequest(Long requestId) {
         BorrowRequest request = borrowRequestRepository.findById(requestId)
@@ -138,24 +143,51 @@ public class BorrowRequestService {
         borrowRequestRepository.save(request);
         equipmentRepository.save(equipment);
 
-        // ── Activity log ───────────────────────────────────────────────────
-        User admin    = getCurrentUser();
+        // ─── Side effects (chạy sau khi state đã commit logic xong) ──────────
+        User actor = currentActor();
         User borrower = request.getUser();
-        logRequestAction(admin, ActivityLogAction.REQUEST_APPROVED, request, equipment, null);
 
-        // ── Email + In-app notification cho người mượn (async, fire & forget) ──
-        notificationService.sendAndNotify(
-                borrower.getId(),
-                borrower.getEmail(),
-                NotificationType.REQUEST_APPROVED,
-                "Yêu cầu mượn thiết bị đã được duyệt",
-                "Yêu cầu mượn \"" + equipment.getName() + "\" của bạn đã được duyệt.",
-                "/requests/" + request.getId(),
-                "[BorrowApp] Yêu cầu mượn thiết bị đã được duyệt",
-                buildApprovedEmailHtml(borrower, request, equipment)
-        );
+        // 1) Email + in-app notification
+        try {
+            String title   = "Yêu cầu mượn thiết bị đã được duyệt";
+            String message = String.format(
+                    "Yêu cầu mượn \"%s\" của bạn (từ %s đến %s) đã được duyệt.",
+                    equipment.getName(),
+                    request.getStartDate().format(DATE_FMT),
+                    request.getEndDate().format(DATE_FMT));
+            String link    = "/requests/" + request.getId();
+            String subject = "[BorrowApp] Yêu cầu mượn đã được duyệt";
+            String html    = buildApprovedEmailHtml(borrower, equipment, request);
+
+            notificationService.sendAndNotify(
+                    borrower.getId(),
+                    borrower.getEmail(),
+                    NotificationType.REQUEST_APPROVED,
+                    title, message, link,
+                    subject, html
+            );
+        } catch (Exception ex) {
+            // Không để side-effect làm fail business flow
+            log.error("[ApproveRequest] Notify failed | requestId={} err={}", requestId, ex.getMessage());
+        }
+
+        // 2) Activity log
+        try {
+            loggingHelper.log(
+                    actor != null ? actor.getId() : null,
+                    actor != null ? actor.getFullName() : "SYSTEM",
+                    ActivityLogAction.APPROVE_REQUEST,
+                    "REQUEST", request.getId(),
+                    buildRequestDetail(request, equipment, borrower, null)
+            );
+        } catch (Exception ex) {
+            log.error("[ApproveRequest] Log failed | requestId={} err={}", requestId, ex.getMessage());
+        }
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+     * REJECT  — email + log
+     * ════════════════════════════════════════════════════════════════════ */
     @Transactional
     public void rejectRequest(Long requestId, RejectRequestBody body) {
         BorrowRequest request = borrowRequestRepository.findById(requestId)
@@ -171,26 +203,51 @@ public class BorrowRequestService {
         request.setReason(body.getReason());
         borrowRequestRepository.save(request);
 
-        // ── Activity log ───────────────────────────────────────────────────
-        User admin     = getCurrentUser();
-        User borrower  = request.getUser();
-        Equipment eqp  = request.getEquipment();
-        logRequestAction(admin, ActivityLogAction.REQUEST_REJECTED, request, eqp, body.getReason());
+        // ─── Side effects ────────────────────────────────────────────────────
+        User actor    = currentActor();
+        User borrower = request.getUser();
+        Equipment equipment = request.getEquipment();
+        String reason = body.getReason();
 
-        // ── Email + In-app notification cho người mượn ──
-        notificationService.sendAndNotify(
-                borrower.getId(),
-                borrower.getEmail(),
-                NotificationType.REQUEST_REJECTED,
-                "Yêu cầu mượn thiết bị bị từ chối",
-                "Yêu cầu mượn \"" + eqp.getName() + "\" của bạn đã bị từ chối."
-                        + (body.getReason() != null ? " Lý do: " + body.getReason() : ""),
-                "/requests/" + request.getId(),
-                "[BorrowApp] Yêu cầu mượn thiết bị bị từ chối",
-                buildRejectedEmailHtml(borrower, request, eqp, body.getReason())
-        );
+        // 1) Email + in-app
+        try {
+            String title   = "Yêu cầu mượn thiết bị đã bị từ chối";
+            String message = String.format(
+                    "Yêu cầu mượn \"%s\" của bạn đã bị từ chối. Lý do: %s",
+                    equipment.getName(),
+                    reason != null && !reason.isBlank() ? reason : "(không có)");
+            String link    = "/requests/" + request.getId();
+            String subject = "[BorrowApp] Yêu cầu mượn bị từ chối";
+            String html    = buildRejectedEmailHtml(borrower, equipment, request, reason);
+
+            notificationService.sendAndNotify(
+                    borrower.getId(),
+                    borrower.getEmail(),
+                    NotificationType.REQUEST_REJECTED,
+                    title, message, link,
+                    subject, html
+            );
+        } catch (Exception ex) {
+            log.error("[RejectRequest] Notify failed | requestId={} err={}", requestId, ex.getMessage());
+        }
+
+        // 2) Activity log
+        try {
+            loggingHelper.log(
+                    actor != null ? actor.getId() : null,
+                    actor != null ? actor.getFullName() : "SYSTEM",
+                    ActivityLogAction.REJECT_REQUEST,
+                    "REQUEST", request.getId(),
+                    buildRequestDetail(request, equipment, borrower, reason)
+            );
+        } catch (Exception ex) {
+            log.error("[RejectRequest] Log failed | requestId={} err={}", requestId, ex.getMessage());
+        }
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+     * RETURN — chỉ log, không gửi email (theo spec)
+     * ════════════════════════════════════════════════════════════════════ */
     @Transactional
     public void returnRequest(Long requestId) {
         BorrowRequest request = borrowRequestRepository.findById(requestId)
@@ -211,115 +268,36 @@ public class BorrowRequestService {
         borrowRequestRepository.save(request);
         equipmentRepository.save(equipment);
 
-        // ── Activity log (return không gửi email theo yêu cầu) ─────────────
-        User admin = getCurrentUser();
-        logRequestAction(admin, ActivityLogAction.REQUEST_RETURNED, request, equipment, null);
-    }
-
-    // ─── Helpers: lấy user hiện tại, ghi log, build email body ───────────────
-
-    /**
-     * Lấy User hiện tại từ SecurityContext (principal name = email).
-     * Trả về null nếu không xác định được – để không phá luồng chính khi
-     * scheduler/system gọi service.
-     */
-    private User getCurrentUser() {
+        // ─── Side effect: chỉ log ────────────────────────────────────────────
+        User actor    = currentActor();
+        User borrower = request.getUser();
         try {
-            String email = SecurityContextHolder.getContext()
-                    .getAuthentication()
-                    .getName();
-            return userRepository.findByEmail(email).orElse(null);
-        } catch (Exception ignore) {
-            return null;
+            loggingHelper.log(
+                    actor != null ? actor.getId() : null,
+                    actor != null ? actor.getFullName() : "SYSTEM",
+                    ActivityLogAction.RETURN_REQUEST,
+                    "REQUEST", request.getId(),
+                    buildRequestDetail(request, equipment, borrower, null)
+            );
+        } catch (Exception ex) {
+            log.error("[ReturnRequest] Log failed | requestId={} err={}", requestId, ex.getMessage());
         }
     }
 
-    /**
-     * Ghi activity log cho một hành động trên BorrowRequest.
-     * Detail là JSON gọn gồm borrower, equipment, status, từ/đến và lý do (nếu có).
-     */
-    private void logRequestAction(User actor,
-                                  ActivityLogAction action,
-                                  BorrowRequest request,
-                                  Equipment equipment,
-                                  String reason) {
-        Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("requestId",   request.getId());
-        detail.put("borrowerId",  request.getUser().getId());
-        detail.put("borrower",    request.getUser().getEmail());
-        detail.put("equipmentId", equipment.getId());
-        detail.put("equipment",   equipment.getName());
-        detail.put("startDate",   request.getStartDate().toString());
-        detail.put("endDate",     request.getEndDate().toString());
-        detail.put("status",      request.getStatus().name());
-        if (reason != null && !reason.isBlank()) {
-            detail.put("reason", reason);
-        }
-
-        if (actor != null) {
-            loggingHelper.log(actor.getId(), actor.getFullName(),
-                    action, "REQUEST", request.getId(), detail);
-        } else {
-            loggingHelper.logSystem(action, "REQUEST", request.getId(), detail);
-        }
-    }
-
-    private String buildApprovedEmailHtml(User borrower, BorrowRequest request, Equipment equipment) {
-        return ""
-            + "<div style=\"font-family:Arial,sans-serif;color:#222\">"
-            + "<h2 style=\"color:#2e7d32\">Yêu cầu mượn thiết bị đã được DUYỆT ✅</h2>"
-            + "<p>Xin chào <b>" + safe(borrower.getFullName()) + "</b>,</p>"
-            + "<p>Yêu cầu mượn thiết bị của bạn vừa được duyệt với các thông tin sau:</p>"
-            + "<ul>"
-            + "<li><b>Thiết bị:</b> " + safe(equipment.getName()) + "</li>"
-            + "<li><b>Ngày bắt đầu:</b> " + request.getStartDate().format(DATE_FMT) + "</li>"
-            + "<li><b>Ngày kết thúc:</b> " + request.getEndDate().format(DATE_FMT) + "</li>"
-            + "<li><b>Mã yêu cầu:</b> #" + request.getId() + "</li>"
-            + "</ul>"
-            + "<p>Vui lòng đến nhận thiết bị đúng hạn và giữ gìn cẩn thận.</p>"
-            + "<p style=\"color:#888;font-size:12px\">Email tự động từ hệ thống BorrowApp – vui lòng không trả lời.</p>"
-            + "</div>";
-    }
-
-    private String buildRejectedEmailHtml(User borrower, BorrowRequest request,
-                                          Equipment equipment, String reason) {
-        return ""
-            + "<div style=\"font-family:Arial,sans-serif;color:#222\">"
-            + "<h2 style=\"color:#c62828\">Yêu cầu mượn thiết bị bị TỪ CHỐI ❌</h2>"
-            + "<p>Xin chào <b>" + safe(borrower.getFullName()) + "</b>,</p>"
-            + "<p>Rất tiếc, yêu cầu mượn thiết bị của bạn đã bị từ chối:</p>"
-            + "<ul>"
-            + "<li><b>Thiết bị:</b> " + safe(equipment.getName()) + "</li>"
-            + "<li><b>Ngày bắt đầu:</b> " + request.getStartDate().format(DATE_FMT) + "</li>"
-            + "<li><b>Ngày kết thúc:</b> " + request.getEndDate().format(DATE_FMT) + "</li>"
-            + "<li><b>Mã yêu cầu:</b> #" + request.getId() + "</li>"
-            + (reason != null && !reason.isBlank()
-                    ? "<li><b>Lý do:</b> " + safe(reason) + "</li>"
-                    : "")
-            + "</ul>"
-            + "<p>Nếu cần thêm thông tin, vui lòng liên hệ quản trị viên.</p>"
-            + "<p style=\"color:#888;font-size:12px\">Email tự động từ hệ thống BorrowApp – vui lòng không trả lời.</p>"
-            + "</div>";
-    }
-
-    private static String safe(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
     public PageResponse<BorrowRequestListItemResponse> getMyRequests(int page, int pageSize, RequestStatus status) {
         String email = SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getName();
- 
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
- 
+
         Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by("createdAt").descending());
- 
+
         Page<BorrowRequest> resultPage = (status != null)
                 ? borrowRequestRepository.findByUserIdAndStatus(user.getId(), status, pageable)
                 : borrowRequestRepository.findByUserId(user.getId(), pageable);
- 
+
         List<BorrowRequestListItemResponse> items = resultPage.getContent().stream()
                 .map(BorrowRequestListItemResponse::fromEntity)
                 .toList();
@@ -350,25 +328,100 @@ public class BorrowRequestService {
 
         return BorrowRequestDetailResponse.fromEntity(request);
     }
+
     public PageResponse<BorrowRequestListItemResponse> getAllRequests(
-        int page, int pageSize, RequestStatus status, String keyword) {
+            int page, int pageSize, RequestStatus status, String keyword) {
 
-    String normalizedKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        String normalizedKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
 
-    Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by("createdAt").descending());
 
-    Page<BorrowRequest> resultPage = borrowRequestRepository
-            .findAllWithFilter(status, normalizedKeyword, pageable);
+        Page<BorrowRequest> resultPage = borrowRequestRepository
+                .findAllWithFilter(status, normalizedKeyword, pageable);
 
-    List<BorrowRequestListItemResponse> items = resultPage.getContent().stream()
-            .map(BorrowRequestListItemResponse::fromEntity)
-            .toList();
+        List<BorrowRequestListItemResponse> items = resultPage.getContent().stream()
+                .map(BorrowRequestListItemResponse::fromEntity)
+                .toList();
 
-    return PageResponse.<BorrowRequestListItemResponse>builder()
-            .items(items)
-            .total(resultPage.getTotalElements())
-            .page(page)
-            .pageSize(pageSize)
-            .build();
+        return PageResponse.<BorrowRequestListItemResponse>builder()
+                .items(items)
+                .total(resultPage.getTotalElements())
+                .page(page)
+                .pageSize(pageSize)
+                .build();
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+     * Private helpers
+     * ════════════════════════════════════════════════════════════════════ */
+
+    /** Lấy user đang đăng nhập (actor) – có thể trả null nếu không có auth context. */
+    private User currentActor() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth.getName() == null) return null;
+            return userRepository.findByEmail(auth.getName()).orElse(null);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /** Build detail map cho ActivityLog (LoggingHelper sẽ tự serialize sang JSON). */
+    private Map<String, Object> buildRequestDetail(BorrowRequest request,
+                                                   Equipment equipment,
+                                                   User borrower,
+                                                   String reason) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("requestId",     request.getId());
+        m.put("status",        request.getStatus());
+        m.put("borrowerId",    borrower.getId());
+        m.put("borrowerEmail", borrower.getEmail());
+        m.put("borrowerName",  borrower.getFullName());
+        m.put("equipmentId",   equipment.getId());
+        m.put("equipmentName", equipment.getName());
+        m.put("startDate",     request.getStartDate());
+        m.put("endDate",       request.getEndDate());
+        if (reason != null) m.put("reason", reason);
+        return m;
+    }
+
+    private String buildApprovedEmailHtml(User borrower, Equipment equipment, BorrowRequest request) {
+        return "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222\">"
+             + "<h2 style=\"color:#2e7d32\">Yêu cầu mượn đã được duyệt</h2>"
+             + "<p>Chào <b>" + esc(borrower.getFullName()) + "</b>,</p>"
+             + "<p>Yêu cầu mượn thiết bị của bạn đã được duyệt với thông tin sau:</p>"
+             + "<ul>"
+             + "<li><b>Thiết bị:</b> " + esc(equipment.getName()) + "</li>"
+             + "<li><b>Thời gian:</b> " + request.getStartDate().format(DATE_FMT)
+             + " → " + request.getEndDate().format(DATE_FMT) + "</li>"
+             + "</ul>"
+             + "<p>Vui lòng đến nhận thiết bị đúng thời gian. Cảm ơn bạn!</p>"
+             + "<hr/><p style=\"font-size:12px;color:#888\">Email tự động từ hệ thống BorrowApp.</p>"
+             + "</div>";
+    }
+
+    private String buildRejectedEmailHtml(User borrower, Equipment equipment,
+                                          BorrowRequest request, String reason) {
+        return "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222\">"
+             + "<h2 style=\"color:#c62828\">Yêu cầu mượn bị từ chối</h2>"
+             + "<p>Chào <b>" + esc(borrower.getFullName()) + "</b>,</p>"
+             + "<p>Rất tiếc, yêu cầu mượn của bạn đã bị từ chối:</p>"
+             + "<ul>"
+             + "<li><b>Thiết bị:</b> " + esc(equipment.getName()) + "</li>"
+             + "<li><b>Thời gian:</b> " + request.getStartDate().format(DATE_FMT)
+             + " → " + request.getEndDate().format(DATE_FMT) + "</li>"
+             + "<li><b>Lý do:</b> " + esc(reason != null && !reason.isBlank() ? reason : "(không có)") + "</li>"
+             + "</ul>"
+             + "<p>Nếu cần hỗ trợ, vui lòng liên hệ quản trị viên.</p>"
+             + "<hr/><p style=\"font-size:12px;color:#888\">Email tự động từ hệ thống BorrowApp.</p>"
+             + "</div>";
+    }
+
+    private String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
     }
 }
