@@ -12,18 +12,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Self-contained test: principal class TestPrincipal được khai báo ngay trong
+ * file này (public static), KHÔNG cần tạo CustomUserPrincipal ở main code.
+ *
+ * Khi bạn tích hợp module User/JWT thật → thay TestPrincipal bằng class
+ * UserDetails của module đó (miễn là có getId() trả về Long).
+ */
 @WebMvcTest(NotificationController.class)
 @DisplayName("NotificationController")
 class NotificationControllerTest {
@@ -33,11 +44,47 @@ class NotificationControllerTest {
 
     private static final String BASE = "/api/v1/notifications";
 
+    // ─── Principal nội bộ chỉ dùng cho test ──────────────────────────────────
+    /**
+     * @AuthenticationPrincipal(expression = "id") sẽ đọc field này qua SpEL.
+     * Phải là public class + có getId() public để SpEL resolve được.
+     */
+    public static class TestPrincipal implements UserDetails {
+        private final Long id;
+        private final String username;
+        private final List<String> roles;
+
+        public TestPrincipal(Long id, String username, List<String> roles) {
+            this.id = id;
+            this.username = username;
+            this.roles = roles;
+        }
+
+        public Long getId() { return id; }
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return roles.stream()
+                    .map(r -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r))
+                    .toList();
+        }
+        @Override public String  getPassword()              { return ""; }
+        @Override public String  getUsername()              { return username; }
+        @Override public boolean isAccountNonExpired()      { return true; }
+        @Override public boolean isAccountNonLocked()       { return true; }
+        @Override public boolean isCredentialsNonExpired()  { return true; }
+        @Override public boolean isEnabled()                { return true; }
+    }
+
+    /** Principal helper – user ID 42, role USER */
+    private static TestPrincipal userPrincipal() {
+        return new TestPrincipal(42L, "user", List.of("USER"));
+    }
+
     // ─── GET /bell ────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("GET /bell – đã xác thực → 200 với unreadCount và items")
-    @WithMockUser(username = "user", roles = "USER")
     void getBell_authenticated_returns200WithData() throws Exception {
         NotificationResponse item = NotificationResponse.builder()
                 .id(1L)
@@ -49,16 +96,13 @@ class NotificationControllerTest {
                 .build();
 
         NotificationBellResponse bell = NotificationBellResponse.builder()
-                .unreadCount(1)
-                .items(List.of(item))
-                .total(1)
-                .page(0)
-                .pageSize(10)
+                .unreadCount(1).items(List.of(item)).total(1).page(0).pageSize(10)
                 .build();
 
-        given(service.getBell(any(), anyInt(), anyInt())).willReturn(bell);
+        given(service.getBell(eq(42L), anyInt(), anyInt())).willReturn(bell);
 
         mockMvc.perform(get(BASE + "/bell")
+                        .with(user(userPrincipal()))
                         .param("page", "0")
                         .param("pageSize", "10")
                         .accept(MediaType.APPLICATION_JSON))
@@ -80,7 +124,6 @@ class NotificationControllerTest {
 
     @Test
     @DisplayName("GET /bell – không có notification → unreadCount=0, items=[]")
-    @WithMockUser(roles = "USER")
     void getBell_empty_returnsZeroUnreadEmptyItems() throws Exception {
         NotificationBellResponse emptyBell = NotificationBellResponse.builder()
                 .unreadCount(0).items(List.of()).total(0).page(0).pageSize(10)
@@ -88,7 +131,9 @@ class NotificationControllerTest {
 
         given(service.getBell(any(), anyInt(), anyInt())).willReturn(emptyBell);
 
-        mockMvc.perform(get(BASE + "/bell").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get(BASE + "/bell")
+                        .with(user(userPrincipal()))
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.unreadCount").value(0))
                 .andExpect(jsonPath("$.data.items").isEmpty());
@@ -98,11 +143,12 @@ class NotificationControllerTest {
 
     @Test
     @DisplayName("PATCH /{id}/read – thành công → 200 'Marked as read'")
-    @WithMockUser(roles = "USER")
     void markAsRead_success_returns200() throws Exception {
-        willDoNothing().given(service).markAsRead(any(), eq(1L));
+        willDoNothing().given(service).markAsRead(eq(42L), eq(1L));
 
-        mockMvc.perform(patch(BASE + "/1/read").with(csrf()))
+        mockMvc.perform(patch(BASE + "/1/read")
+                        .with(user(userPrincipal()))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Marked as read"));
@@ -110,23 +156,25 @@ class NotificationControllerTest {
 
     @Test
     @DisplayName("PATCH /{id}/read – không có notification → 404")
-    @WithMockUser(roles = "USER")
     void markAsRead_notFound_returns404() throws Exception {
         willThrow(new EntityNotFoundException("Notification not found: 999"))
                 .given(service).markAsRead(any(), eq(999L));
 
-        mockMvc.perform(patch(BASE + "/999/read").with(csrf()))
+        mockMvc.perform(patch(BASE + "/999/read")
+                        .with(user(userPrincipal()))
+                        .with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("PATCH /{id}/read – sai owner → 403")
-    @WithMockUser(roles = "USER")
     void markAsRead_wrongOwner_returns403() throws Exception {
         willThrow(new SecurityException("Access denied"))
                 .given(service).markAsRead(any(), eq(1L));
 
-        mockMvc.perform(patch(BASE + "/1/read").with(csrf()))
+        mockMvc.perform(patch(BASE + "/1/read")
+                        .with(user(userPrincipal()))
+                        .with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -141,11 +189,12 @@ class NotificationControllerTest {
 
     @Test
     @DisplayName("PATCH /read-all – thành công → 200")
-    @WithMockUser(roles = "USER")
     void markAllAsRead_success_returns200() throws Exception {
-        willDoNothing().given(service).markAllAsRead(any());
+        willDoNothing().given(service).markAllAsRead(eq(42L));
 
-        mockMvc.perform(patch(BASE + "/read-all").with(csrf()))
+        mockMvc.perform(patch(BASE + "/read-all")
+                        .with(user(userPrincipal()))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message")

@@ -18,11 +18,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("EmailService")
@@ -35,9 +39,14 @@ class EmailServiceImplTest {
 
     @InjectMocks EmailServiceImpl service;
 
+    /**
+     * Fix Nhóm E.1: dùng lenient() để stub không bị Mockito Strict báo
+     * UnnecessaryStubbingException ở test retryAsync_logNotFound_throwsIllegalArgument
+     * (test đó throw trước khi gọi createMimeMessage).
+     */
     @BeforeEach
     void setUp() {
-        given(mailSender.createMimeMessage()).willReturn(mimeMessage);
+        lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
     }
 
     // ─── sendAsync() ──────────────────────────────────────────────────────────
@@ -49,24 +58,20 @@ class EmailServiceImplTest {
         @Test
         @DisplayName("Gửi thành công → NotificationLog status=SUCCESS")
         void sendAsync_success_logsSuccessStatus() {
-            // given
             NotificationLog freshLog = TestFixtures.freshLog(1L);
             given(logRepo.save(any(NotificationLog.class)))
-                    .willReturn(freshLog)    // lần 1 – tạo mới
-                    .willReturn(freshLog);   // lần 2 – update success
+                    .willReturn(freshLog)
+                    .willReturn(freshLog);
             willDoNothing().given(mailSender).send(mimeMessage);
 
-            // when
             service.sendAsync("user@example.com", "Subject", "<p>Body</p>");
 
-            // then – save() gọi 2 lần: tạo log + update SUCCESS
             then(logRepo).should(times(2)).save(any(NotificationLog.class));
 
             ArgumentCaptor<NotificationLog> captor =
                     ArgumentCaptor.forClass(NotificationLog.class);
             then(logRepo).should(times(2)).save(captor.capture());
 
-            // Lần save thứ 2 phải là SUCCESS
             NotificationLog secondSave = captor.getAllValues().get(1);
             assertThat(secondSave.getStatus()).isEqualTo(NotificationLogStatus.SUCCESS);
             assertThat(secondSave.getErrorMessage()).isNull();
@@ -75,33 +80,27 @@ class EmailServiceImplTest {
         @Test
         @DisplayName("Gửi thất bại → NotificationLog status=FAILED, retryCount tăng, không throw")
         void sendAsync_mailFails_logsFailedAndDoesNotThrow() {
-            // given
             NotificationLog freshLog = TestFixtures.freshLog(1L);
             given(logRepo.save(any(NotificationLog.class))).willReturn(freshLog);
             willThrow(new RuntimeException("SMTP timeout"))
                     .given(mailSender).send(any(MimeMessage.class));
 
-            // when – không được throw
             assertThatNoException().isThrownBy(() ->
                     service.sendAsync("user@example.com", "Subj", "Body")
             );
 
-            // then – log vẫn được lưu (2 lần: tạo + update failed)
             then(logRepo).should(atLeastOnce()).save(any());
         }
 
         @Test
         @DisplayName("NotificationLog được tạo trước khi gửi (status=FAILED mặc định)")
         void sendAsync_createsLogBeforeSend() {
-            // given – mailSender ném exception ngay lập tức
             NotificationLog freshLog = TestFixtures.freshLog(1L);
             given(logRepo.save(any())).willReturn(freshLog);
             willThrow(new RuntimeException("fail")).given(mailSender).send(mimeMessage);
 
-            // when
             service.sendAsync("to@example.com", "Subject", "Body");
 
-            // then – log được tạo dù mail fail
             then(logRepo).should(atLeast(1)).save(any(NotificationLog.class));
         }
 
@@ -136,16 +135,13 @@ class EmailServiceImplTest {
         @Test
         @DisplayName("Retry thành công → status=SUCCESS, log activity RETRY_EMAIL")
         void retryAsync_success_updatesStatusAndLogsActivity() {
-            // given
             NotificationLog failedLog = TestFixtures.failedLog(10L);
             given(logRepo.findById(10L)).willReturn(Optional.of(failedLog));
             given(logRepo.save(any())).willReturn(failedLog);
             willDoNothing().given(mailSender).send(mimeMessage);
 
-            // when
             service.retryAsync(10L);
 
-            // then
             then(logRepo).should(atLeast(2)).save(any());
             then(loggingHelper).should().logSystem(any(), eq("NOTIFICATION_LOG"), eq(10L), any());
         }
@@ -163,7 +159,6 @@ class EmailServiceImplTest {
 
             assertThatNoException().isThrownBy(() -> service.retryAsync(10L));
 
-            // retryCount phải tăng lên
             assertThat(failedLog.getRetryCount()).isGreaterThan(initialRetryCount);
             assertThat(failedLog.getStatus()).isEqualTo(NotificationLogStatus.FAILED);
         }
@@ -178,24 +173,36 @@ class EmailServiceImplTest {
                     .hasMessageContaining("999");
         }
 
+        /**
+         * Fix Nhóm E.2: ArgumentCaptor chỉ lưu reference, không snapshot.
+         * retryAsync sửa cùng 1 object qua nhiều bước:
+         *   markRetrying() → save(nlog)   ← status = RETRYING tại thời điểm này
+         *   doSend() → markSuccess() → save(nlog) ← status = SUCCESS tại thời điểm này
+         * Captor.getAllValues() trả 2 reference giống nhau, cả 2 đều mang
+         * trạng thái cuối (SUCCESS) → anyMatch(RETRYING) false.
+         *
+         * Fix: snapshot status NGAY trong willAnswer khi save() được gọi.
+         */
         @Test
         @DisplayName("Trước khi gửi, log được đánh dấu RETRYING")
         void retryAsync_marksRetryingBeforeSend() {
             NotificationLog failedLog = TestFixtures.failedLog(10L);
             given(logRepo.findById(10L)).willReturn(Optional.of(failedLog));
-            given(logRepo.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            List<NotificationLogStatus> savedStatuses = new ArrayList<>();
+            given(logRepo.save(any())).willAnswer(inv -> {
+                NotificationLog arg = inv.getArgument(0);
+                savedStatuses.add(arg.getStatus());
+                return arg;
+            });
             willDoNothing().given(mailSender).send(mimeMessage);
 
             service.retryAsync(10L);
 
-            // Lần save đầu tiên phải là RETRYING
-            ArgumentCaptor<NotificationLog> captor =
-                    ArgumentCaptor.forClass(NotificationLog.class);
-            then(logRepo).should(atLeast(1)).save(captor.capture());
-
-            boolean hasRetryingState = captor.getAllValues().stream()
-                    .anyMatch(l -> l.getStatus() == NotificationLogStatus.RETRYING);
-            assertThat(hasRetryingState).isTrue();
+            assertThat(savedStatuses).contains(NotificationLogStatus.RETRYING);
+            assertThat(savedStatuses).contains(NotificationLogStatus.SUCCESS);
+            assertThat(savedStatuses.indexOf(NotificationLogStatus.RETRYING))
+                    .isLessThan(savedStatuses.indexOf(NotificationLogStatus.SUCCESS));
         }
     }
 }

@@ -1,15 +1,33 @@
 package com.borrowapp.common.constants;
 
 public enum ActivityLogAction {
-    // Device
-    CREATE_DEVICE, UPDATE_DEVICE, DELETE_DEVICE,
+
+    // Auth
+    USER_REGISTER,
+    USER_LOGIN,
+
+    // Equipment
+    EQUIPMENT_CREATED,
+    EQUIPMENT_UPDATED,
+    EQUIPMENT_DELETED,       // soft delete
+    EQUIPMENT_STOCK_UPDATED,
+
     // Request
-    CREATE_REQUEST, APPROVE_REQUEST, REJECT_REQUEST,
-    RETURN_REQUEST, MARK_OVERDUE,
-    // User
-    LOGIN, LOGOUT, UPDATE_PROFILE, CHANGE_PASSWORD,
+    REQUEST_CREATED,
+    REQUEST_APPROVED,
+    REQUEST_REJECTED,
+    REQUEST_RETURNED,
+    REQUEST_MARKED_OVERDUE,  // bởi cron job
+
+    // Penalty & Account
+    PENALTY_ADDED,
+    PENALTY_ADJUSTED,        // admin điều chỉnh thủ công
+    ACCOUNT_LOCKED,
+    ACCOUNT_UNLOCKED,
+
     // Notification
-    SEND_EMAIL, RETRY_EMAIL,
-    // Admin
-    EXPORT_DATA, IMPORT_DATA
+    EMAIL_SENT,
+    EMAIL_FAILED,
+    RETRY_EMAIL,             // retry gửi lại email FAILED
+    NOTIFICATION_CREATED
 }

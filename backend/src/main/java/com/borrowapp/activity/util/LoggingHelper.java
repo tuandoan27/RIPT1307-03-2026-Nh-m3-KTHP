@@ -13,10 +13,10 @@ import org.springframework.stereotype.Component;
  *
  * Cách dùng trong các service khác:
  * <pre>
- *   loggingHelper.log(currentUser.getId(), currentUser.getFullName(),
- *                     ActivityLogAction.APPROVE_REQUEST, "REQUEST", request.getId(),
- *                     Map.of("borrower", request.getUser().getEmail(),
- *                            "device",   request.getDevice().getName()));
+ * loggingHelper.log(currentUser.getId(), currentUser.getFullName(),
+ * ActivityLogAction.REQUEST_APPROVED, "REQUEST", request.getId(),
+ * Map.of("borrower", request.getUser().getEmail(),
+ * "device",   request.getDevice().getName()));
  * </pre>
  */
 @Slf4j
@@ -56,7 +56,12 @@ public class LoggingHelper {
 
     private String toJson(Object obj) {
         if (obj == null) return null;
-        if (obj instanceof String s) return s;
+        
+        // Đã sửa lại cú pháp instanceof chuẩn
+        if (obj instanceof String) {
+            return (String) obj;
+        }
+        
         try {
             return objectMapper.writeValueAsString(obj);
         } catch (JsonProcessingException e) {

@@ -1,5 +1,7 @@
 package com.borrowapp.notification.service.impl;
 
+import com.borrowapp.common.exception.ForbiddenException;
+import com.borrowapp.common.exception.ResourceNotFoundException;
 import com.borrowapp.notification.dto.NotificationBellResponse;
 import com.borrowapp.notification.dto.NotificationLogResponse;
 import com.borrowapp.notification.dto.NotificationResponse;
@@ -12,7 +14,6 @@ import com.borrowapp.notification.repository.NotificationLogRepository;
 import com.borrowapp.notification.repository.NotificationRepository;
 import com.borrowapp.notification.service.EmailService;
 import com.borrowapp.notification.service.NotificationService;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -82,11 +83,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void markAsRead(Long userId, Long notificationId) {
         Notification notif = notifRepo.findById(notificationId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Notification not found: " + notificationId));
 
         if (!notif.getRecipientId().equals(userId)) {
-            throw new SecurityException(
+            throw new ForbiddenException(
                     "Access denied to notification: " + notificationId);
         }
 
@@ -119,7 +120,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void retryEmail(Long notificationLogId) {
         // Kiểm tra tồn tại trước khi giao async
         logRepo.findById(notificationLogId)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "NotificationLog not found: " + notificationLogId));
         emailService.retryAsync(notificationLogId);
     }

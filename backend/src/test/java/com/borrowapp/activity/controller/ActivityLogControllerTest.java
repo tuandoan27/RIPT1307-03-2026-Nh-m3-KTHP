@@ -4,12 +4,13 @@ import com.borrowapp.activity.dto.ActivityLogFilterRequest;
 import com.borrowapp.activity.dto.ActivityLogResponse;
 import com.borrowapp.activity.service.ActivityLogService;
 import com.borrowapp.common.constants.ActivityLogAction;
-import com.borrowapp.common.response.ResponseUtil;
+import com.borrowapp.notification.config.SecurityConfig; // ← package của bạn
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
@@ -20,12 +21,21 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * @Import(SecurityConfig.class) → load @EnableMethodSecurity + csrf.disable()
+ * vào WebMvcTest context để:
+ *  - @PreAuthorize("hasRole('ADMIN')") hoạt động → USER trả 403
+ *  - CSRF tắt → DELETE/POST không có csrf token trả 405 (thay vì 403)
+ */
 @WebMvcTest(ActivityLogController.class)
+@Import(SecurityConfig.class)
 @DisplayName("ActivityLogController")
 class ActivityLogControllerTest {
 
@@ -118,6 +128,7 @@ class ActivityLogControllerTest {
     @DisplayName("DELETE – không có endpoint DELETE – trả về 405")
     @WithMockUser(roles = "ADMIN")
     void delete_notAllowed_returns405() throws Exception {
+        // csrf.disable() trong SecurityConfig → không cần .with(csrf())
         mockMvc.perform(delete(BASE_URL + "/1"))
                 .andExpect(status().isMethodNotAllowed());
     }
@@ -126,6 +137,7 @@ class ActivityLogControllerTest {
     @DisplayName("POST – không có endpoint POST – trả về 405")
     @WithMockUser(roles = "ADMIN")
     void post_notAllowed_returns405() throws Exception {
+        // csrf.disable() trong SecurityConfig → không cần .with(csrf())
         mockMvc.perform(post(BASE_URL))
                 .andExpect(status().isMethodNotAllowed());
     }

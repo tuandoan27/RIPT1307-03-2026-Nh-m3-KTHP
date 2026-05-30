@@ -12,23 +12,21 @@ import java.time.LocalDateTime;
 
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> {
 
-    @Query("""
-        SELECT a FROM ActivityLog a
-        WHERE (:userId     IS NULL OR a.userId     = :userId)
-          AND (:action     IS NULL OR a.action     = :action)
-          AND (:targetType IS NULL OR a.targetType = :targetType)
-          AND (:targetId   IS NULL OR a.targetId   = :targetId)
-          AND (:from       IS NULL OR a.createdAt >= :from)
-          AND (:to         IS NULL OR a.createdAt <= :to)
-        ORDER BY a.createdAt DESC
-        """)
+    @Query("SELECT a FROM ActivityLog a " +
+           "WHERE (:userId IS NULL OR a.userId = :userId) " +
+           "AND (:action IS NULL OR a.action = :action) " +
+           "AND (:targetType IS NULL OR a.targetType = :targetType) " +
+           "AND (:targetId IS NULL OR a.targetId = :targetId) " +
+           "AND (:from IS NULL OR a.createdAt >= :from) " +
+           "AND (:to IS NULL OR a.createdAt <= :to) " +
+           "ORDER BY a.createdAt DESC")
     Page<ActivityLog> findWithFilters(
-            @Param("userId")     Long userId,
-            @Param("action")     ActivityLogAction action,
+            @Param("userId") Long userId,
+            @Param("action") ActivityLogAction action,
             @Param("targetType") String targetType,
-            @Param("targetId")   Long targetId,
-            @Param("from")       LocalDateTime from,
-            @Param("to")         LocalDateTime to,
+            @Param("targetId") Long targetId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
             Pageable pageable
     );
 }
