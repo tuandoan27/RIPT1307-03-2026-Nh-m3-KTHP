@@ -23,15 +23,7 @@ import {
 import { history } from 'umi';
 import type { ColumnsType } from 'antd/es/table';
 
-import {
-  MOCK_STAT_CARDS,
-  MOCK_MONTHLY_DATA,
-  MOCK_STATUS_PIE,
-  MOCK_TOP_DEVICES,
-  MOCK_PENDING_REQUESTS,
-  type TopDevice,
-  type PendingRequest,
-} from './mockData';
+import { getDashboardData, type StatCard, type MonthlyBorrowData, type StatusPieData, type TopDevice, type PendingRequest } from '@/mocks';
 
 const { Title, Text } = Typography;
 
@@ -124,10 +116,27 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [chartsLoading, setChartsLoading] = useState<boolean>(true);
 
+  const [statCards, setStatCards] = useState<StatCard[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyBorrowData[]>([]);
+  const [statusPie, setStatusPie] = useState<StatusPieData[]>([]);
+  const [topDevices, setTopDevices] = useState<TopDevice[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+
   // Giả lập 2 lần fetch độc lập (cards + charts)
   useEffect(() => {
-    simulateFetch(900).then(() => setLoading(false));
-    simulateFetch(1400).then(() => setChartsLoading(false));
+    simulateFetch(900).then(() => {
+      const d = getDashboardData();
+      setStatCards(d.statCards);
+      setTopDevices(d.topDevices);
+      setPendingRequests(d.pendingRequests);
+      setLoading(false);
+    });
+    simulateFetch(1400).then(() => {
+      const d = getDashboardData();
+      setMonthlyData(d.monthlyData);
+      setStatusPie(d.statusPie);
+      setChartsLoading(false);
+    });
   }, []);
 
   const handleRefresh = () => {
@@ -151,7 +160,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* ── 4 Stat Cards ───────────────────────────────────── */}
       <Row gutter={[16, 16]}>
-        {MOCK_STAT_CARDS.map((card) => (
+        {statCards.map((card) => (
           <Col xs={24} sm={12} lg={6} key={card.title}>
             <Card bordered={false} style={{ borderRadius: 8 }}>
               {loading ? (
@@ -183,7 +192,7 @@ const AdminDashboard: React.FC = () => {
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart
-                  data={MOCK_MONTHLY_DATA}
+                  data={monthlyData}
                   margin={{ top: 8, right: 16, left: -8, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -212,7 +221,7 @@ const AdminDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
-                    data={MOCK_STATUS_PIE}
+                    data={statusPie}
                     dataKey="count"
                     nameKey="label"
                     cx="50%"
@@ -223,7 +232,7 @@ const AdminDashboard: React.FC = () => {
                     }
                     labelLine={false}
                   >
-                    {MOCK_STATUS_PIE.map((entry) => (
+                    {statusPie.map((entry) => (
                       <Cell key={entry.status} fill={entry.color} />
                     ))}
                   </Pie>
@@ -261,9 +270,9 @@ const AdminDashboard: React.FC = () => {
             {loading ? (
               <Skeleton active paragraph={{ rows: 5 }} />
             ) : (
-              <Table<TopDevice>
+                <Table<TopDevice>
                 columns={TOP_DEVICE_COLUMNS}
-                dataSource={MOCK_TOP_DEVICES}
+                dataSource={topDevices}
                 pagination={false}
                 size="small"
               />
@@ -297,9 +306,9 @@ const AdminDashboard: React.FC = () => {
             {loading ? (
               <Skeleton active paragraph={{ rows: 5 }} />
             ) : (
-              <Table<PendingRequest>
+                <Table<PendingRequest>
                 columns={PENDING_COLUMNS}
-                dataSource={MOCK_PENDING_REQUESTS}
+                dataSource={pendingRequests}
                 pagination={false}
                 size="small"
               />
