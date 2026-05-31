@@ -14,23 +14,23 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 /**
  * Advice tách riêng cho 2 exception "method not allowed" với HIGHEST_PRECEDENCE.
  * Phải tách khỏi GlobalExceptionHandler để đảm bảo Spring resolve đúng
- * (catch-all @ExceptionHandler(Exception.class) trong cùng class có vẻ
+ * (catch-all @ExceptionHandler(Exception.class) trong cùng class có thể
  * gây nhiễu khi resolve NoResourceFoundException trong Spring 6.2.x).
+ *
+ * Dùng signature ResponseUtil.error(HttpStatus, String) của project Tuan.
  */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class MethodNotAllowedAdvice {
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException ex) {
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(ResponseUtil.error("Method not allowed"));
+    public ResponseEntity<ApiResponse<Object>> handleNoResource(NoResourceFoundException ex) {
+        return ResponseUtil.error(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
+    public ResponseEntity<ApiResponse<Object>> handleMethodNotAllowed(
             HttpRequestMethodNotSupportedException ex) {
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(ResponseUtil.error(ex.getMessage()));
+        return ResponseUtil.error(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage());
     }
 }

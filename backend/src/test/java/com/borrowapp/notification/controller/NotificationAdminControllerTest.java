@@ -1,6 +1,5 @@
 package com.borrowapp.notification.controller;
 
-import com.borrowapp.notification.config.SecurityConfig; // ← package của bạn
 import com.borrowapp.notification.dto.NotificationLogResponse;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.service.NotificationService;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -30,7 +28,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * trong WebMvcTest context, để @PreAuthorize("hasRole('ADMIN')") chặn USER → 403.
  */
 @WebMvcTest(NotificationAdminController.class)
-@Import(SecurityConfig.class)
 @DisplayName("NotificationAdminController")
 class NotificationAdminControllerTest {
 

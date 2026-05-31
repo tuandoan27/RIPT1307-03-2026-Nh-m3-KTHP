@@ -4,13 +4,11 @@ import com.borrowapp.activity.dto.ActivityLogFilterRequest;
 import com.borrowapp.activity.dto.ActivityLogResponse;
 import com.borrowapp.activity.service.ActivityLogService;
 import com.borrowapp.common.constants.ActivityLogAction;
-import com.borrowapp.notification.config.SecurityConfig; // ← package của bạn
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
@@ -35,7 +33,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  - CSRF tắt → DELETE/POST không có csrf token trả 405 (thay vì 403)
  */
 @WebMvcTest(ActivityLogController.class)
-@Import(SecurityConfig.class)
 @DisplayName("ActivityLogController")
 class ActivityLogControllerTest {
 
