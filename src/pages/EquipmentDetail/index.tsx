@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Button, Input, DatePicker, Alert, Spin, Empty, Divider, Row, Col, Statistic, Tag, Calendar, Badge, Space, Modal, message } from 'antd';
-import { ArrowLeftOutlined, CalendarOutlined, AlertOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { history, useParams } from 'umi';
-import dayjs from 'dayjs';
+import { Card, Form, Button, Input, DatePicker, Alert, Spin, Empty, Divider, Row, Col, Statistic, Tag, Calendar, Badge, Modal, message } from 'antd';
+import { ArrowLeftOutlined, AlertOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { history, useParams, useModel } from 'umi';
+import moment from 'moment';
 import axios from '@/utils/axios';
 import styles from './index.less';
 
@@ -26,10 +26,12 @@ const EquipmentDetail: React.FC = () => {
 	const [equipment, setEquipment] = useState<Equipment | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
-	const [bookedDates, setBookedDates] = useState<BookedDate[]>([]);
+	const [bookedDates] = useState<BookedDate[]>([]);
 	const [accountLocked, setAccountLocked] = useState(false);
 	const [lockReason, setLockReason] = useState('');
 	const [form] = Form.useForm();
+
+	const { initialState } = useModel('@@initialState');
 
 	// Fetch equipment detail
 	useEffect(() => {
@@ -37,48 +39,46 @@ const EquipmentDetail: React.FC = () => {
 			setLoading(true);
 			try {
 				const response = await axios.get(`/equipment/${id}`);
-				setEquipment(response.data?.data);
-
-				// Fetch booked dates
-				const bookedResponse = await axios.get(`/equipment/${id}/booked-dates`);
-				setBookedDates(bookedResponse.data?.data || []);
-
-				// Check account status
-				const profileResponse = await axios.get('/profile');
-				if (profileResponse.data?.locked) {
-					setAccountLocked(true);
-					setLockReason(profileResponse.data?.lockReason || 'Tài khoản của bạn đã bị khóa mượn thiết bị');
+				const eq = response.data?.data;
+				if (eq) {
+					setEquipment({
+						id: String(eq.id),
+						name: eq.name,
+						description: eq.description,
+						image: eq.imageUrl || 'https://via.placeholder.com/500x400?text=Equipment',
+						totalQuantity: eq.totalQuantity,
+						availableQuantity: eq.availableQuantity,
+						isDeleted: false,
+					});
 				}
 			} catch (error) {
 				console.error('Failed to fetch equipment:', error);
-				// Mock data
-				setEquipment({
-					id: id || '1',
-					name: 'Laptop Dell XPS 15',
-					description: 'Laptop cao cấp với CPU Intel i7, RAM 16GB, SSD 512GB. Phù hợp cho các đồ án lập trình và thiết kế đồ họa.',
-					image: 'https://via.placeholder.com/500x400?text=Laptop+XPS',
-					totalQuantity: 5,
-					availableQuantity: 2,
-					isDeleted: false,
-				});
 			} finally {
 				setLoading(false);
 			}
 		};
 		fetchEquipment();
-	}, [id]);
+
+		// Check account status from initialState
+		if (initialState?.currentUser) {
+			const isLocked = (initialState.currentUser as any).isLocked;
+			if (isLocked) {
+				setAccountLocked(true);
+				setLockReason('Tài khoản của bạn đã bị khóa mượn thiết bị do vi phạm nội quy.');
+			}
+		}
+	}, [id, initialState]);
 
 	// Check availability in date range
-	const checkAvailability = async (startDate: dayjs.Dayjs, endDate: dayjs.Dayjs) => {
+	const checkAvailability = async (startDate: moment.Moment, endDate: moment.Moment) => {
 		try {
-			const response = await axios.get(`/equipment/${id}/check-overlap`, {
+			const response = await axios.get(`/equipment/${id}/overlap`, {
 				params: {
-					startDate: startDate.format('YYYY-MM-DD'),
-					endDate: endDate.format('YYYY-MM-DD'),
+					start: startDate.format('YYYY-MM-DD'),
+					end: endDate.format('YYYY-MM-DD'),
 				},
 			});
-			const overlapCount = response.data?.overlapCount || 0;
-			return equipment && overlapCount < equipment.totalQuantity;
+			return response.data?.data?.available;
 		} catch (error) {
 			return false;
 		}
@@ -108,10 +108,11 @@ const EquipmentDetail: React.FC = () => {
 
 		setSubmitting(true);
 		try {
-			await axios.post(`/equipment/${id}/borrow-request`, {
+			await axios.post('/requests', {
+				equipmentId: Number(id),
 				startDate: startDate.format('YYYY-MM-DD'),
 				endDate: endDate.format('YYYY-MM-DD'),
-				notes: values.notes,
+				note: values.notes,
 			});
 
 			message.success('Gửi yêu cầu mượn thành công! Vui lòng chờ phê duyệt.');
@@ -283,7 +284,7 @@ const EquipmentDetail: React.FC = () => {
 										disabledDate={(current) => {
 											if (!current) return false;
 											// Disable past dates
-											return current.isBefore(dayjs(), 'day');
+											return current.isBefore(moment(), 'day');
 										}}
 									/>
 								</Form.Item>

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { List, Card, Button, Empty, Space, Badge, Pagination, Avatar, Tag, Modal, message } from 'antd';
-import { BellOutlined, CheckOutlined, InfoCircleOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { CheckOutlined, InfoCircleOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
-import axios from '@/utils/axios';
 import styles from './index.less';
 
 dayjs.extend(relativeTime);
@@ -32,61 +31,62 @@ const Notifications: React.FC = () => {
 		const fetchNotifications = async () => {
 			setLoading(true);
 			try {
-				const response = await axios.get('/notifications');
-				const sorted = (response.data?.data || []).sort((a: Notification, b: Notification) =>
-					dayjs(b.createdDate).diff(dayjs(a.createdDate))
-				);
-				setNotifications(sorted);
+				let storedNotifs = localStorage.getItem('mockNotifications');
+				let notifList: Notification[] = [];
+				if (storedNotifs) {
+					notifList = JSON.parse(storedNotifs);
+				} else {
+					notifList = [
+						{
+							id: '1',
+							title: 'Yêu cầu được phê duyệt',
+							content: 'Yêu cầu mượn Laptop Dell XPS 15 của bạn đã được phê duyệt. Vui lòng nhận thiết bị tại phòng quản lý.',
+							type: 'success',
+							read: false,
+							createdDate: dayjs().subtract(2, 'hours').format('YYYY-MM-DD HH:mm'),
+							relatedUrl: '/my-requests',
+						},
+						{
+							id: '2',
+							title: 'Thông báo về ngày trả',
+							content: 'Vui lòng nhắc nhở bạn trả Máy Chiếu Epson vào ngày 28/05/2026.',
+							type: 'info',
+							read: false,
+							createdDate: dayjs().subtract(1, 'days').format('YYYY-MM-DD HH:mm'),
+							relatedUrl: '/my-requests',
+						},
+						{
+							id: '3',
+							title: 'Thiết bị quá hạn',
+							content: 'Bạn có thiết bị iPad Pro 12.9 đang quá hạn trả. Vui lòng trả lại ngay hôm nay.',
+							type: 'error',
+							read: true,
+							createdDate: dayjs().subtract(3, 'days').format('YYYY-MM-DD HH:mm'),
+							relatedUrl: '/my-requests',
+						},
+						{
+							id: '4',
+							title: 'Yêu cầu bị từ chối',
+							content: 'Yêu cầu mượn Bộ Vi Xử Lý Raspberry Pi của bạn đã bị từ chối. Lý do: Thiết bị không có sẵn trong khoảng thời gian yêu cầu.',
+							type: 'warning',
+							read: true,
+							createdDate: dayjs().subtract(5, 'days').format('YYYY-MM-DD HH:mm'),
+							relatedUrl: '/my-requests',
+						},
+						{
+							id: '5',
+							title: 'Thông báo bảo trì hệ thống',
+							content: 'Hệ thống sẽ bảo trì vào ngày 01/06/2026 từ 22:00 đến 02:00. Vui lòng không sử dụng trong khoảng thời gian này.',
+							type: 'info',
+							read: true,
+							createdDate: dayjs().subtract(7, 'days').format('YYYY-MM-DD HH:mm'),
+						},
+					];
+					localStorage.setItem('mockNotifications', JSON.stringify(notifList));
+				}
+				setNotifications(notifList.sort((a, b) => dayjs(b.createdDate).diff(dayjs(a.createdDate))));
 			} catch (error) {
 				console.error('Failed to fetch notifications:', error);
-				// Mock data
-				const mockNotifications: Notification[] = [
-					{
-						id: '1',
-						title: 'Yêu cầu được phê duyệt',
-						content: 'Yêu cầu mượn Laptop Dell XPS 15 của bạn đã được phê duyệt. Vui lòng nhận thiết bị tại phòng quản lý.',
-						type: 'success',
-						read: false,
-						createdDate: dayjs().subtract(2, 'hours').format('YYYY-MM-DD HH:mm'),
-						relatedUrl: '/my-requests',
-					},
-					{
-						id: '2',
-						title: 'Thông báo về ngày trả',
-						content: 'Vui lòng nhắc nhở bạn trả Máy Chiếu Epson vào ngày 28/05/2026.',
-						type: 'info',
-						read: false,
-						createdDate: dayjs().subtract(1, 'days').format('YYYY-MM-DD HH:mm'),
-						relatedUrl: '/my-requests',
-					},
-					{
-						id: '3',
-						title: 'Thiết bị quá hạn',
-						content: 'Bạn có thiết bị iPad Pro 12.9 đang quá hạn trả. Vui lòng trả lại ngay hôm nay.',
-						type: 'error',
-						read: true,
-						createdDate: dayjs().subtract(3, 'days').format('YYYY-MM-DD HH:mm'),
-						relatedUrl: '/my-requests',
-					},
-					{
-						id: '4',
-						title: 'Yêu cầu bị từ chối',
-						content: 'Yêu cầu mượn Bộ Vi Xử Lý Raspberry Pi của bạn đã bị từ chối. Lý do: Thiết bị không có sẵn trong khoảng thời gian yêu cầu.',
-						type: 'warning',
-						read: true,
-						createdDate: dayjs().subtract(5, 'days').format('YYYY-MM-DD HH:mm'),
-						relatedUrl: '/my-requests',
-					},
-					{
-						id: '5',
-						title: 'Thông báo bảo trì hệ thống',
-						content: 'Hệ thống sẽ bảo trì vào ngày 01/06/2026 từ 22:00 đến 02:00. Vui lòng không sử dụng trong khoảng thời gian này.',
-						type: 'info',
-						read: true,
-						createdDate: dayjs().subtract(7, 'days').format('YYYY-MM-DD HH:mm'),
-					},
-				];
-				setNotifications(mockNotifications);
 			} finally {
 				setLoading(false);
 			}
@@ -97,14 +97,11 @@ const Notifications: React.FC = () => {
 	// Mark notification as read and navigate
 	const handleNotificationClick = async (notification: Notification) => {
 		try {
-			if (!notification.read) {
-				await axios.put(`/notifications/${notification.id}/read`);
-				setNotifications(
-					notifications.map((n) =>
-						n.id === notification.id ? { ...n, read: true } : n
-					)
-				);
-			}
+			const updated = notifications.map((n) =>
+				n.id === notification.id ? { ...n, read: true } : n
+			);
+			setNotifications(updated);
+			localStorage.setItem('mockNotifications', JSON.stringify(updated));
 
 			if (notification.relatedUrl) {
 				history.push(notification.relatedUrl);
@@ -121,14 +118,11 @@ const Notifications: React.FC = () => {
 			content: 'Bạn có chắc muốn đánh dấu tất cả thông báo đã đọc không?',
 			okText: 'Có',
 			cancelText: 'Không',
-			onOk: async () => {
-				try {
-					await axios.put('/notifications/mark-all-read');
-					setNotifications(notifications.map((n) => ({ ...n, read: true })));
-					message.success('Đã đánh dấu tất cả thông báo đã đọc');
-				} catch (error) {
-					message.error('Không thể đánh dấu tất cả thông báo');
-				}
+			onOk: () => {
+				const updated = notifications.map((n) => ({ ...n, read: true }));
+				setNotifications(updated);
+				localStorage.setItem('mockNotifications', JSON.stringify(updated));
+				message.success('Đã đánh dấu tất cả thông báo đã đọc');
 			},
 		});
 	};

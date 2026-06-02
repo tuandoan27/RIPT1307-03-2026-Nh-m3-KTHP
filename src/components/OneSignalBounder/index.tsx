@@ -20,45 +20,45 @@ const OneSignalBounder = (props: { children: React.ReactNode }) => {
 	};
 
 	/** Show Popup center screen */
-	const showPopup = (url: string, w: number = 600, h: number = 400) => {
-		// Fixes dual-screen position                             Most browsers      Firefox
-		const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX;
-		const dualScreenTop = window.screenTop !== undefined ? window.screenTop : window.screenY;
-
-		const width = window.innerWidth
-			? window.innerWidth
-			: document.documentElement.clientWidth
-			? document.documentElement.clientWidth
-			: screen.width;
-		const height = window.innerHeight
-			? window.innerHeight
-			: document.documentElement.clientHeight
-			? document.documentElement.clientHeight
-			: screen.height;
-
-		const systemZoom = width / window.screen.availWidth;
-		const left = (width - w) / 2 / systemZoom + dualScreenLeft;
-		const top = (height - h) / 2 / systemZoom + dualScreenTop;
-		window.open(
-			url,
-			'_blank',
-			`scrollbars=yes,
-					width=${w / systemZoom}, 
-					height=${h / systemZoom}, 
-					top=${height}, 
-					left=${left}
-					`,
-		);
-	};
+	// const showPopup = (url: string, w: number = 600, h: number = 400) => {
+	// 	// Fixes dual-screen position                             Most browsers      Firefox
+	// 	const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX;
+	// 	const dualScreenTop = window.screenTop !== undefined ? window.screenTop : window.screenY;
+	// 
+	// 	const width = window.innerWidth
+	// 		? window.innerWidth
+	// 		: document.documentElement.clientWidth
+	// 		? document.documentElement.clientWidth
+	// 		: screen.width;
+	// 	const height = window.innerHeight
+	// 		? window.innerHeight
+	// 		: document.documentElement.clientHeight
+	// 		? document.documentElement.clientHeight
+	// 		: screen.height;
+	// 
+	// 	const systemZoom = width / window.screen.availWidth;
+	// 	const left = (width - w) / 2 / systemZoom + dualScreenLeft;
+	// 	const top = (height - h) / 2 / systemZoom + dualScreenTop;
+	// 	window.open(
+	// 		url,
+	// 		'_blank',
+	// 		`scrollbars=yes,
+	// 				width=${w / systemZoom}, 
+	// 				height=${h / systemZoom}, 
+	// 				top=${top}, 
+	// 				left=${left}
+	// 				`,
+	// 	);
+	// };
 
 	/** Nhận message từ trang handle OneSignal */
-	const receiveMessage = (e: any) => {
-		if (iframeSource?.includes(e.origin)) {
-			if (e.data === false) {
-				showPopup(`${iframeSource}notification/subscribe`);
-			} else if (e.data) setOneSignalId(e.data);
-		}
-	};
+	// const receiveMessage = (e: any) => {
+	// 	if (iframeSource?.includes(e.origin)) {
+	// 		if (e.data === false) {
+	// 			showPopup(`${iframeSource}notification/subscribe`);
+	// 		} else if (e.data) setOneSignalId(e.data);
+	// 	}
+	// };
 
 	useEffect(() => {
 		// Nếu đây là trang handle OneSignal

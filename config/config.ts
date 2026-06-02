@@ -2,8 +2,8 @@
 import { defineConfig } from 'umi';
 import defaultSettings from './defaultSettings';
 import routes from './routes';
-// import proxy from './proxy';
-// const { REACT_APP_ENV } = process.env;
+import proxy from './proxy';
+const { REACT_APP_ENV } = process.env;
 
 export default defineConfig({
 	hash: true,
@@ -12,7 +12,6 @@ export default defineConfig({
 		hmr: true,
 	},
 
-	mock: {}, // <- thêm dòng này
 
 	layout: {
 		locale: true,
@@ -43,6 +42,7 @@ export default defineConfig({
 	esbuild: {},
 	title: false,
 	ignoreMomentLocale: true,
+	proxy: (proxy as any)[REACT_APP_ENV || 'dev'],
 
 	manifest: {
 		basePath: '/',

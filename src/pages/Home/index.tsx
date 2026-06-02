@@ -18,6 +18,7 @@ interface Equipment {
 
 const Home: React.FC = () => {
 	const [equipment, setEquipment] = useState<Equipment[]>([]);
+	const [totalItems, setTotalItems] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [searchText, setSearchText] = useState('');
 	const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'unavailable'>('all');
@@ -26,118 +27,46 @@ const Home: React.FC = () => {
 	const debounceTimer = React.useRef<NodeJS.Timeout>();
 
 	// Fetch equipment list
-	const fetchEquipment = async (query = '') => {
+	const fetchEquipment = async (page = 1, query = '') => {
 		setLoading(true);
 		try {
 			const response = await axios.get('/equipment', {
-				params: { search: query },
+				params: {
+					page,
+					pageSize,
+					keyword: query || undefined,
+				},
 			});
-			const equipmentList = (response.data?.data || []).filter((item: Equipment) => !item.isDeleted);
-			setEquipment(equipmentList);
+			const responseData = response.data?.data;
+			if (responseData && Array.isArray(responseData.items)) {
+				const mapped: Equipment[] = responseData.items.map((item: any) => ({
+					id: String(item.id),
+					name: item.name,
+					description: item.description,
+					image: item.imageUrl || 'https://via.placeholder.com/300x200?text=Equipment',
+					totalQuantity: item.totalQuantity,
+					availableQuantity: item.availableQuantity,
+					isDeleted: false,
+					status: item.availableQuantity > 0 ? 'available' : 'unavailable',
+				}));
+				setEquipment(mapped);
+				setTotalItems(responseData.total || mapped.length);
+			} else {
+				setEquipment([]);
+				setTotalItems(0);
+			}
 		} catch (error) {
 			console.error('Failed to fetch equipment:', error);
-			// Mock data fallback
-			const mockEquipment: Equipment[] = [
-				{
-					id: '1',
-					name: 'Laptop Dell XPS 15',
-					description: 'Laptop cao cấp cho đồ án',
-					image: 'https://via.placeholder.com/300x200?text=Laptop+XPS',
-					totalQuantity: 5,
-					availableQuantity: 2,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '2',
-					name: 'Máy Chiếu Epson',
-					description: 'Máy chiếu 1080p cho tiết học',
-					image: 'https://via.placeholder.com/300x200?text=Projector',
-					totalQuantity: 3,
-					availableQuantity: 1,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '3',
-					name: 'Bộ Vi Xử Lý Raspberry Pi',
-					description: 'Bo mạch nhúng cho IoT',
-					image: 'https://via.placeholder.com/300x200?text=RaspberryPi',
-					totalQuantity: 10,
-					availableQuantity: 0,
-					isDeleted: false,
-					status: 'unavailable',
-				},
-				{
-					id: '4',
-					name: 'Máy Ảnh Canon EOS',
-					description: 'Máy ảnh chuyên nghiệp',
-					image: 'https://via.placeholder.com/300x200?text=Camera',
-					totalQuantity: 2,
-					availableQuantity: 2,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '5',
-					name: 'Loa Bluetooth JBL',
-					description: 'Loa di động chất lượng cao',
-					image: 'https://via.placeholder.com/300x200?text=Speaker',
-					totalQuantity: 8,
-					availableQuantity: 5,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '6',
-					name: 'Tablet iPad Pro',
-					description: 'Tablet cao cấp 12.9 inch',
-					image: 'https://via.placeholder.com/300x200?text=iPad',
-					totalQuantity: 4,
-					availableQuantity: 1,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '7',
-					name: 'Máy In Brother HL-L8360CDW',
-					description: 'Máy in laser đa năng',
-					image: 'https://via.placeholder.com/300x200?text=Printer',
-					totalQuantity: 3,
-					availableQuantity: 0,
-					isDeleted: false,
-					status: 'unavailable',
-				},
-				{
-					id: '8',
-					name: 'Router WiFi TP-Link',
-					description: 'Router WiFi 6 tốc độ cao',
-					image: 'https://via.placeholder.com/300x200?text=Router',
-					totalQuantity: 6,
-					availableQuantity: 4,
-					isDeleted: false,
-					status: 'available',
-				},
-				{
-					id: '9',
-					name: 'Bộ Micro Condenser',
-					description: 'Micro chuyên nghiệp ghi âm',
-					image: 'https://via.placeholder.com/300x200?text=Microphone',
-					totalQuantity: 5,
-					availableQuantity: 3,
-					isDeleted: false,
-					status: 'available',
-				},
-			];
-			setEquipment(mockEquipment);
+			setEquipment([]);
+			setTotalItems(0);
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		fetchEquipment();
-	}, []);
+		fetchEquipment(currentPage, searchText);
+	}, [currentPage]);
 
 	// Search with debounce
 	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,29 +79,23 @@ const Home: React.FC = () => {
 		}
 
 		debounceTimer.current = setTimeout(() => {
-			fetchEquipment(value);
+			fetchEquipment(1, value);
 		}, 300);
 	};
 
-	// Filter and search logic
+	// Filter logic for status
 	const filteredEquipment = useMemo(() => {
 		return equipment.filter((item) => {
-			const matchesSearch = item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-				item.description.toLowerCase().includes(searchText.toLowerCase());
-
 			const matchesStatus = statusFilter === 'all' ||
 				(statusFilter === 'available' && item.availableQuantity > 0) ||
 				(statusFilter === 'unavailable' && item.availableQuantity === 0);
 
-			return matchesSearch && matchesStatus;
+			return matchesStatus;
 		});
-	}, [equipment, searchText, statusFilter]);
+	}, [equipment, statusFilter]);
 
-	// Pagination
-	const paginatedEquipment = useMemo(() => {
-		const startIndex = (currentPage - 1) * pageSize;
-		return filteredEquipment.slice(startIndex, startIndex + pageSize);
-	}, [filteredEquipment, currentPage]);
+	// Rendered items are simply the filtered equipment on current page
+	const paginatedEquipment = filteredEquipment;
 
 	return (
 		<div className={styles.container}>
@@ -264,7 +187,7 @@ const Home: React.FC = () => {
 						<Pagination
 							current={currentPage}
 							pageSize={pageSize}
-							total={filteredEquipment.length}
+							total={totalItems}
 							onChange={setCurrentPage}
 							showSizeChanger={false}
 						/>

@@ -27,12 +27,30 @@ export async function getInitialState(): Promise<IInitialState> {
 	const token = localStorage.getItem('token');
 	if (token) {
 		try {
-			const response = await axios.get('/currentUser');
-			return {
-				currentUser: response.data,
-				permissionLoading: false,
-			};
+			const response = await axios.get('/auth/me');
+			if (response.data?.success) {
+				const userRes = response.data?.data;
+				const mappedUser = {
+					id: userRes.id,
+					name: userRes.fullName,
+					fullName: userRes.fullName,
+					email: userRes.email,
+					studentCode: userRes.studentCode,
+					role: userRes.role,
+					realm_access: {
+						roles: userRes.role === 'ADMIN' ? ['QUAN_TRI_VIEN'] : [],
+					},
+					preferred_username: userRes.studentCode || userRes.email,
+					isLocked: userRes.isLocked,
+					penaltyPoint: userRes.penaltyPoint,
+				};
+				return {
+					currentUser: mappedUser as any,
+					permissionLoading: false,
+				};
+			}
 		} catch (error) {
+			console.error('Failed to fetch user state:', error);
 			localStorage.removeItem('token');
 		}
 	}

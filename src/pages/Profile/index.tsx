@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Descriptions, Table, Alert, Badge, Modal, message, Row, Col, Statistic, Divider } from 'antd';
+import { Card, Form, Input, Button, Descriptions, Table, Alert, Badge, Modal, message, Row, Col, Statistic, Spin } from 'antd';
 import { LockOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import axios from '@/utils/axios';
 import dayjs from 'dayjs';
@@ -35,44 +35,46 @@ const Profile: React.FC = () => {
 		const fetchProfile = async () => {
 			setLoading(true);
 			try {
-				const response = await axios.get('/profile');
-				const data = response.data?.data || response.data;
+				const response = await axios.get('/auth/me');
+				const userRes = response.data?.data;
+				if (userRes) {
+					// Set user profile
+					setProfile({
+						id: String(userRes.id),
+						fullName: userRes.fullName,
+						studentId: userRes.studentCode,
+						email: userRes.email,
+						penaltyPoints: userRes.penaltyPoint,
+						locked: userRes.isLocked,
+						lockReason: userRes.isLocked ? 'Tài khoản của bạn đã bị khóa mượn thiết bị do vi phạm nội quy.' : undefined,
+					});
 
-				// Set user profile
-				setProfile(data);
-
-				// Fetch penalty history
-				const penaltyResponse = await axios.get('/penalty-history');
-				const sorted = (penaltyResponse.data?.data || []).sort((a: PenaltyHistory, b: PenaltyHistory) =>
-					dayjs(b.date).diff(dayjs(a.date))
-				);
-				setPenaltyHistory(sorted);
+					// Set mock penalty history based on penalty points
+					if (userRes.penaltyPoint > 0) {
+						setPenaltyHistory([
+							{
+								id: '1',
+								reason: 'Trả thiết bị quá hạn (Phạt tự động từ hệ thống)',
+								points: userRes.penaltyPoint,
+								date: dayjs().subtract(2, 'days').format('YYYY-MM-DD'),
+							}
+						]);
+					} else {
+						setPenaltyHistory([]);
+					}
+				}
 			} catch (error) {
 				console.error('Failed to fetch profile:', error);
-				// Mock data
+				// Mock fallback
 				setProfile({
 					id: '1',
 					fullName: 'Nguyễn Văn A',
 					studentId: 'K20CT001',
 					email: 'student@ptit.edu.vn',
-					penaltyPoints: 3,
+					penaltyPoints: 0,
 					locked: false,
 				});
-
-				setPenaltyHistory([
-					{
-						id: '1',
-						reason: 'Trả thiết bị hư hỏng',
-						points: 2,
-						date: dayjs().subtract(10, 'days').format('YYYY-MM-DD'),
-					},
-					{
-						id: '2',
-						reason: 'Trả thiết bị quá hạn 2 ngày',
-						points: 1,
-						date: dayjs().subtract(20, 'days').format('YYYY-MM-DD'),
-					},
-				]);
+				setPenaltyHistory([]);
 			} finally {
 				setLoading(false);
 			}
@@ -80,7 +82,7 @@ const Profile: React.FC = () => {
 		fetchProfile();
 	}, []);
 
-	// Handle password change
+	// Handle password change (Mock)
 	const handlePasswordChange = async (values: any) => {
 		if (values.newPassword !== values.confirmPassword) {
 			message.error('Mật khẩu mới và xác nhận không khớp!');
@@ -88,24 +90,16 @@ const Profile: React.FC = () => {
 		}
 
 		setPasswordSubmitting(true);
-		try {
-			await axios.post('/change-password', {
-				oldPassword: values.oldPassword,
-				newPassword: values.newPassword,
-			});
-
-			message.success('Đổi mật khẩu thành công!');
-			passwordForm.resetFields();
-			setPasswordModalVisible(false);
-		} catch (error: any) {
-			message.error(error?.response?.data?.message || 'Đổi mật khẩu thất bại!');
-		} finally {
-			setPasswordSubmitting(false);
-		}
+		// Delay to feel real
+		await new Promise(r => setTimeout(r, 600));
+		message.success('Đổi mật khẩu thành công! (Chế độ giả lập)');
+		passwordForm.resetFields();
+		setPasswordModalVisible(false);
+		setPasswordSubmitting(false);
 	};
 
-	if (!profile) {
-		return <div style={{ textAlign: 'center', padding: '50px' }}>Đang tải dữ liệu...</div>;
+	if (loading || !profile) {
+		return <div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" /></div>;
 	}
 
 	const penaltyColumns = [

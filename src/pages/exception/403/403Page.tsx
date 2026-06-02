@@ -16,6 +16,8 @@ const NotAccessible = () => {
 
 	const onLogout = (): void => {
 		localStorage.removeItem('token');
+		localStorage.removeItem('mockUser');
+		localStorage.removeItem('userRole');
 		setInitialState((s) => ({ ...s, currentUser: undefined }));
 		history.replace('/login');
 	};

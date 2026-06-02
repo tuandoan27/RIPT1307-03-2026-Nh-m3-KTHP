@@ -15,24 +15,23 @@ const Register: React.FC = () => {
 		setErrorMsg(null);
 		setSubmitting(true);
 		try {
-			// Hit the mock register endpoint
-			const response = await axios.post('/register', {
+			const response = await axios.post('/auth/register', {
 				fullName: values.fullName,
-				studentId: values.studentId,
+				studentCode: values.studentId,
 				email: values.email,
 				password: values.password,
 			});
 
-			if (response.data?.status === 'ok' || response.data?.success) {
+			if (response.data?.success) {
 				message.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
 				history.push('/login');
 			} else {
-				setErrorMsg(response.data?.message || 'Đăng ký tài khoản thất bại. Vui lòng thử lại.');
+				setErrorMsg(response.data?.message || 'Đăng ký không thành công.');
 			}
 		} catch (error: any) {
 			setErrorMsg(
 				error?.response?.data?.message ||
-				'Không thể kết nối đến hệ thống. Vui lòng thử lại sau.'
+				'Không thể đăng ký. Vui lòng thử lại.'
 			);
 		} finally {
 			setSubmitting(false);

@@ -1,4 +1,4 @@
-import { DeleteOutlined, HomeOutlined } from '@ant-design/icons';
+import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Spin } from 'antd';
 import './style.less';
 

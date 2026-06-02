@@ -16,24 +16,24 @@ const Login: React.FC = () => {
 		setErrorMsg(null);
 		setSubmitting(true);
 		try {
-			// Hit the mock login endpoint
-			const response = await axios.post('/login', {
-	            email: values.email,
-	            password: values.password,
+			// Hit the real login endpoint
+			const response = await axios.post('/auth/login', {
+				email: values.email,
+				password: values.password,
 			});
 
-			if (response.data?.status === 'ok') {
-				// Save token
-				localStorage.setItem('token', response.data?.token || 'mock-jwt-token-xyz');
-				localStorage.setItem('userRole', response.data?.role || 'student');
+			if (response.data?.success) {
+				const loginData = response.data?.data;
+				localStorage.setItem('token', loginData?.token);
+				localStorage.setItem('userRole', loginData?.user?.role || 'STUDENT');
 				message.success('Đăng nhập thành công!');
 
 				// Refresh initial state to fetch user info and permissions
 				await refresh();
 
 				// Redirect based on role
-				const role = response.data?.role || 'student';
-				if (role === 'admin') {
+				const role = loginData?.user?.role || 'STUDENT';
+				if (role === 'ADMIN') {
 					history.push('/admin/dashboard');
 				} else {
 					history.push('/home');

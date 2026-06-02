@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Badge, List, Popover, Button, Space, Avatar, Typography, Tooltip, message } from 'antd';
-import { BellOutlined, MailOutlined, NotificationOutlined, CheckOutlined } from '@ant-design/icons';
+import { Badge, List, Popover, Button, Avatar, Typography, message } from 'antd';
+import { BellOutlined, NotificationOutlined, CheckOutlined } from '@ant-design/icons';
+import { history } from 'umi';
 
 interface MockNotification {
 	id: string;
@@ -8,57 +9,82 @@ interface MockNotification {
 	description: string;
 	datetime: string;
 	read: boolean;
-	avatar: React.ReactNode;
+	type?: string;
 }
 
 const NoticeIconView: React.FC = () => {
-	const [notifications, setNotifications] = useState<MockNotification[]>([
-		{
-			id: '1',
-			title: 'Thông báo đóng học phí học kỳ II',
-			description: 'Hạn cuối đóng học phí học kỳ II là ngày 30/06/2026. Sinh viên chú ý thanh toán đúng hạn.',
-			datetime: '5 phút trước',
-			read: false,
-			avatar: <Avatar style={{ backgroundColor: '#ff4d4f' }} icon={<NotificationOutlined />} />,
-		},
-		{
-			id: '2',
-			title: 'Lịch thi học kỳ mới',
-			description: 'Đã có lịch thi chính thức cho các môn học kỳ II. Vui lòng kiểm tra phòng thi và số báo danh.',
-			datetime: '2 giờ trước',
-			read: false,
-			avatar: <Avatar style={{ backgroundColor: '#1890ff' }} icon={<NotificationOutlined />} />,
-		},
-		{
-			id: '3',
-			title: 'Đăng ký đề tài Nghiên cứu khoa học',
-			description: 'Mở đăng ký đề tài NCKH sinh viên cấp Học viện năm học 2026. Hạn đăng ký trước 15/06.',
-			datetime: '1 ngày trước',
-			read: true,
-			avatar: <Avatar style={{ backgroundColor: '#52c41a' }} icon={<NotificationOutlined />} />,
-		},
-		{
-			id: '4',
-			title: 'Thông báo kết quả điểm rèn luyện',
-			description: 'Đã cập nhật điểm rèn luyện dự kiến Học kỳ I. Sinh viên khiếu nại trước ngày 30/05.',
-			datetime: '3 ngày trước',
-			read: true,
-			avatar: <Avatar style={{ backgroundColor: '#faad14' }} icon={<NotificationOutlined />} />,
-		},
-	]);
+	const [notifications, setNotifications] = useState<MockNotification[]>([]);
+
+	const getIcon = (type?: string) => {
+		switch (type) {
+			case 'success':
+				return <Avatar style={{ backgroundColor: '#52c41a' }} icon={<NotificationOutlined />} />;
+			case 'error':
+				return <Avatar style={{ backgroundColor: '#ff4d4f' }} icon={<NotificationOutlined />} />;
+			case 'warning':
+				return <Avatar style={{ backgroundColor: '#faad14' }} icon={<NotificationOutlined />} />;
+			default:
+				return <Avatar style={{ backgroundColor: '#1890ff' }} icon={<NotificationOutlined />} />;
+		}
+	};
+
+	const loadNotifications = () => {
+		const stored = localStorage.getItem('mockNotifications');
+		if (stored) {
+			try {
+				const list = JSON.parse(stored);
+				const mapped = list.map((item: any) => ({
+					id: item.id,
+					title: item.title,
+					description: item.content,
+					datetime: item.createdDate,
+					read: item.read,
+					type: item.type,
+				}));
+				setNotifications(mapped);
+			} catch (e) {
+				console.error(e);
+			}
+		}
+	};
+
+	React.useEffect(() => {
+		loadNotifications();
+		// Listen for local storage updates to keep header sync'd
+		window.addEventListener('storage', loadNotifications);
+		return () => window.removeEventListener('storage', loadNotifications);
+	}, []);
 
 	const unreadCount = notifications.filter((item) => !item.read).length;
 
 	const handleItemClick = (id: string) => {
-		setNotifications(
-			notifications.map((item) => (item.id === id ? { ...item, read: true } : item))
-		);
-		message.info('Đã đánh dấu đọc thông báo.');
+		const stored = localStorage.getItem('mockNotifications');
+		if (stored) {
+			try {
+				const list = JSON.parse(stored);
+				const updated = list.map((item: any) => (item.id === id ? { ...item, read: true } : item));
+				localStorage.setItem('mockNotifications', JSON.stringify(updated));
+				loadNotifications();
+				message.info('Đã đánh dấu đọc thông báo.');
+			} catch (e) {
+				console.error(e);
+			}
+		}
 	};
 
 	const handleMarkAllRead = () => {
-		setNotifications(notifications.map((item) => ({ ...item, read: true })));
-		message.success('Đã đánh dấu đọc tất cả thông báo.');
+		const stored = localStorage.getItem('mockNotifications');
+		if (stored) {
+			try {
+				const list = JSON.parse(stored);
+				const updated = list.map((item: any) => ({ ...item, read: true }));
+				localStorage.setItem('mockNotifications', JSON.stringify(updated));
+				loadNotifications();
+				message.success('Đã đánh dấu đọc tất cả thông báo.');
+			} catch (e) {
+				console.error(e);
+			}
+		}
 	};
 
 	const notificationList = (
@@ -102,7 +128,7 @@ const NoticeIconView: React.FC = () => {
 							className='hover-bg-gray'
 						>
 							<List.Item.Meta
-								avatar={item.avatar}
+								avatar={getIcon(item.type)}
 								title={
 									<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 										<span style={{ fontWeight: item.read ? 500 : 600, color: item.read ? '#595959' : '#000' }}>
@@ -140,7 +166,7 @@ const NoticeIconView: React.FC = () => {
 					textAlign: 'center',
 				}}
 			>
-				<Button type='link' block style={{ padding: 0 }}>
+				<Button type='link' block style={{ padding: 0 }} onClick={() => history.push('/notifications')}>
 					Xem tất cả thông báo
 				</Button>
 			</div>

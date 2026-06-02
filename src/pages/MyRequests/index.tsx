@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Card, Select, Button, Modal, Descriptions, Timeline, Empty, Space, Spin, Tag } from 'antd';
 import { EyeOutlined, DownloadOutlined } from '@ant-design/icons';
-import { history } from 'umi';
 import dayjs from 'dayjs';
 import axios from '@/utils/axios';
 import StatusBadge from '@/components/StatusBadge';
@@ -37,118 +36,72 @@ const MyRequests: React.FC = () => {
 		const fetchRequests = async () => {
 			setLoading(true);
 			try {
-				const response = await axios.get('/my-requests');
-				const sortedRequests = (response.data?.data || []).sort((a: BorrowRequest, b: BorrowRequest) =>
+				const response = await axios.get('/requests/my', {
+					params: {
+						page: 1,
+						pageSize: 100,
+					}
+				});
+				const items = response.data?.data?.items || [];
+				const sortedRequests = items.map((item: any) => ({
+					id: String(item.id),
+					equipmentName: item.equipmentName,
+					borrowDate: item.startDate,
+					returnDate: item.endDate,
+					createdDate: item.createdAt,
+					status: item.status,
+					history: [],
+				})).sort((a: any, b: any) =>
 					dayjs(b.createdDate).diff(dayjs(a.createdDate))
 				);
 				setRequests(sortedRequests);
 			} catch (error) {
 				console.error('Failed to fetch requests:', error);
-				// Mock data
-				const mockRequests: BorrowRequest[] = [
-					{
-						id: '1',
-						equipmentName: 'Laptop Dell XPS 15',
-						borrowDate: dayjs().add(2, 'days').format('YYYY-MM-DD'),
-						returnDate: dayjs().add(5, 'days').format('YYYY-MM-DD'),
-						createdDate: dayjs().subtract(3, 'days').format('YYYY-MM-DD HH:mm'),
-						status: 'APPROVED',
-						history: [
-							{
-								status: 'PENDING',
-								date: dayjs().subtract(3, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'System',
-								note: 'Yêu cầu được tạo',
-							},
-							{
-								status: 'APPROVED',
-								date: dayjs().subtract(1, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'Trần Quốc Anh',
-								note: 'Phê duyệt yêu cầu',
-							},
-						],
-					},
-					{
-						id: '2',
-						equipmentName: 'Máy Chiếu Epson',
-						borrowDate: dayjs().subtract(10, 'days').format('YYYY-MM-DD'),
-						returnDate: dayjs().subtract(5, 'days').format('YYYY-MM-DD'),
-						createdDate: dayjs().subtract(15, 'days').format('YYYY-MM-DD HH:mm'),
-						status: 'RETURNED',
-						history: [
-							{
-								status: 'PENDING',
-								date: dayjs().subtract(15, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'System',
-								note: 'Yêu cầu được tạo',
-							},
-							{
-								status: 'APPROVED',
-								date: dayjs().subtract(14, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'Nguyễn Văn B',
-								note: 'Phê duyệt yêu cầu',
-							},
-							{
-								status: 'RETURNED',
-								date: dayjs().subtract(5, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'Nguyễn Văn B',
-								note: 'Thiết bị đã được trả',
-							},
-						],
-					},
-					{
-						id: '3',
-						equipmentName: 'iPad Pro 12.9',
-						borrowDate: dayjs().subtract(20, 'days').format('YYYY-MM-DD'),
-						returnDate: dayjs().subtract(15, 'days').format('YYYY-MM-DD'),
-						createdDate: dayjs().subtract(25, 'days').format('YYYY-MM-DD HH:mm'),
-						status: 'OVERDUE',
-						history: [
-							{
-								status: 'PENDING',
-								date: dayjs().subtract(25, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'System',
-								note: 'Yêu cầu được tạo',
-							},
-							{
-								status: 'APPROVED',
-								date: dayjs().subtract(24, 'days').format('YYYY-MM-DD HH:mm'),
-								user: 'Lê Thị C',
-								note: 'Phê duyệt yêu cầu',
-							},
-						],
-					},
-					{
-						id: '4',
-						equipmentName: 'Bộ Vi Xử Lý Raspberry Pi',
-						borrowDate: dayjs().add(7, 'days').format('YYYY-MM-DD'),
-						returnDate: dayjs().add(14, 'days').format('YYYY-MM-DD'),
-						createdDate: dayjs().format('YYYY-MM-DD HH:mm'),
-						status: 'REJECTED',
-						rejectionReason: 'Thiết bị không có sẵn trong khoảng thời gian yêu cầu',
-						history: [
-							{
-								status: 'PENDING',
-								date: dayjs().format('YYYY-MM-DD HH:mm'),
-								user: 'System',
-								note: 'Yêu cầu được tạo',
-							},
-							{
-								status: 'REJECTED',
-								date: dayjs().add(1, 'hours').format('YYYY-MM-DD HH:mm'),
-								user: 'Phạm Văn D',
-								note: 'Từ chối: Thiết bị không có sẵn trong khoảng thời gian yêu cầu',
-							},
-						],
-					},
-				];
-				setRequests(mockRequests);
+				setRequests([]);
 			} finally {
 				setLoading(false);
 			}
 		};
 		fetchRequests();
 	}, []);
+
+	const handleViewDetail = async (record: BorrowRequest) => {
+		try {
+			const response = await axios.get(`/requests/${record.id}`);
+			const detail = response.data?.data;
+			if (detail) {
+				const mappedDetail: BorrowRequest = {
+					id: String(detail.id),
+					equipmentName: detail.equipmentName,
+					borrowDate: detail.startDate,
+					returnDate: detail.endDate,
+					createdDate: detail.createdAt,
+					status: detail.status,
+					rejectionReason: detail.reason || undefined,
+					history: [
+						{
+							status: 'PENDING',
+							date: detail.createdAt,
+							user: detail.studentName || 'Sinh viên',
+							note: detail.note || 'Yêu cầu được tạo',
+						},
+						...(detail.status !== 'PENDING' ? [{
+							status: detail.status,
+							date: detail.createdAt,
+							user: detail.status === 'REJECTED' ? 'Người duyệt' : 'Hệ thống',
+							note: detail.status === 'REJECTED' ? detail.reason : undefined,
+						}] : [])
+					],
+				};
+				setSelectedRequest(mappedDetail);
+				setModalVisible(true);
+			}
+		} catch (error) {
+			console.error('Failed to fetch request detail:', error);
+			setSelectedRequest(record);
+			setModalVisible(true);
+		}
+	};
 
 	// Filter requests
 	const filteredRequests = requests.filter((req) =>
@@ -194,14 +147,11 @@ const MyRequests: React.FC = () => {
 			title: 'Hành Động',
 			key: 'action',
 			width: '20%',
-			render: (_, record: BorrowRequest) => (
+			render: (_: any, record: BorrowRequest) => (
 				<Button
 					type="link"
 					icon={<EyeOutlined />}
-					onClick={() => {
-						setSelectedRequest(record);
-						setModalVisible(true);
-					}}
+					onClick={() => handleViewDetail(record)}
 				>
 					Xem Chi Tiết
 				</Button>
