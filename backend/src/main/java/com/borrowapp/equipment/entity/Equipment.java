@@ -1,4 +1,3 @@
-// com/borrowapp/equipment/entity/Equipment.java
 package com.borrowapp.equipment.entity;
 
 import jakarta.persistence.*;
@@ -37,6 +36,9 @@ public class Equipment {
 
     @Column
     private String imageUrl;
+
+    @Column
+    private String category;
 
     @Column(nullable = false)
     @Builder.Default

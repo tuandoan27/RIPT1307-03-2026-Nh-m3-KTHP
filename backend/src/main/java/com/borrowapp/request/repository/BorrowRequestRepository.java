@@ -131,4 +131,5 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
     );
 
     List<BorrowRequest> findTop5ByStatusOrderByCreatedAtDesc(RequestStatus status);
+    Long countByEquipmentIdAndStatus(Long equipmentId, RequestStatus status);
 }

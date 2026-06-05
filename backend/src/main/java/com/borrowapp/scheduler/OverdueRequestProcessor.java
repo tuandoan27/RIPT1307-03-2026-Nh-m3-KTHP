@@ -1,6 +1,7 @@
 package com.borrowapp.scheduler;
 
 import com.borrowapp.common.constants.RequestStatus;
+import com.borrowapp.common.ports.AccountLockedNotifier;
 import com.borrowapp.common.utils.TransitionValidator;
 import com.borrowapp.notification.service.EmailService;
 import com.borrowapp.penalty.entity.Penalty;
@@ -9,6 +10,7 @@ import com.borrowapp.request.entity.BorrowRequest;
 import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
+import com.borrowapp.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,17 +28,18 @@ public class OverdueRequestProcessor {
     private final UserRepository          userRepository;
     private final PenaltyRepository       penaltyRepository;
     private final EmailService            emailService;
+    private final UserService             userService;
+    private final AccountLockedNotifier   accountLockedNotifier;
 
     @Transactional
     public boolean process(BorrowRequest request, LocalDate today) {
-        // Idempotency — bỏ qua nếu đã xử lý rồi
         if (Boolean.TRUE.equals(request.getPenaltyApplied())) {
             log.warn("[OverdueScheduler] Request id={} đã được xử lý trước đó, bỏ qua.", request.getId());
             return false;
         }
 
         if (!TransitionValidator.isValidTransition(request.getStatus(), RequestStatus.OVERDUE)) {
-            log.warn("[OverdueScheduler] Transition không hợp lệ cho request id={}, status hiện tại={}.",
+            log.warn("[OverdueScheduler] Transition không hợp lệ cho request id={}, status={}.",
                     request.getId(), request.getStatus());
             return false;
         }
@@ -48,17 +51,14 @@ public class OverdueRequestProcessor {
         User user = request.getUser();
         user.setPenaltyPoint(user.getPenaltyPoint() + penaltyPoints);
 
-        boolean justLocked = false;
-        if (!user.isLocked() && user.getPenaltyPoint() >= 10) {
-            user.setLocked(true);
-            justLocked = true;
+        boolean justLocked = userService.checkAndLockIfThresholdReached(user);
+        if (justLocked) {
             log.info("[OverdueScheduler] User id={} bị khóa do đạt {} điểm phạt.",
                     user.getId(), user.getPenaltyPoint());
         }
 
         request.setStatus(RequestStatus.OVERDUE);
         request.setPenaltyApplied(true);
-
 
         String equipmentName = request.getEquipment().getName();
 
@@ -75,8 +75,11 @@ public class OverdueRequestProcessor {
         log.info("[OverdueScheduler] Request id={} → OVERDUE | equipment='{}' | user id={} | +{} điểm | tổng={} điểm.",
                 request.getId(), equipmentName, user.getId(), penaltyPoints, user.getPenaltyPoint());
 
-
         emailService.sendOverdueWarning(user, request);
+
+        if (justLocked) {
+            accountLockedNotifier.notify(user.getId(), user.getPenaltyPoint());
+        }
 
         return justLocked;
     }

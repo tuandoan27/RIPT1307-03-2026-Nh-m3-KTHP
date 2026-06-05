@@ -1,4 +1,3 @@
-// com/borrowapp/penalty/entity/Penalty.java
 package com.borrowapp.penalty.entity;
 
 import com.borrowapp.request.entity.BorrowRequest;
@@ -28,13 +27,18 @@ public class Penalty {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "borrow_request_id")
-    private BorrowRequest borrowRequest;
+    private BorrowRequest borrowRequest; // nullable với MANUAL_ADJUSTMENT
 
     @Column(nullable = false)
     private Integer points;
 
     @Column(nullable = false)
     private String reason;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(length = 20)
+    private PenaltyType type = PenaltyType.AUTO;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
