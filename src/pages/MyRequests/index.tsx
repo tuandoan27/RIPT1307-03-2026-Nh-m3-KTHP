@@ -310,26 +310,33 @@ const MyRequests: React.FC = () => {
 								</p>
 							</Card>
 						)}
-
 						<h4>Lịch Sử Thay Đổi Trạng Thái</h4>
 						<Timeline>
 							{selectedRequest.history.map((entry, index) => (
 								<Timeline.Item
 									key={index}
-									dot={
-										<Tag color={
-											entry.status === 'PENDING' ? 'orange' :
-											entry.status === 'APPROVED' ? 'green' :
-											entry.status === 'REJECTED' ? 'red' :
-											entry.status === 'RETURNED' ? 'cyan' :
-											'purple'
-										}>
-											{entry.status}
-										</Tag>
+									color={
+										entry.status === 'PENDING' ? 'orange' :
+										entry.status === 'APPROVED' ? 'green' :
+										entry.status === 'REJECTED' ? 'red' :
+										entry.status === 'RETURNED' ? 'cyan' :
+										'blue'
 									}
 								>
 									<p>
 										<strong>{entry.user}</strong> - {dayjs(entry.date).format('DD/MM/YYYY HH:mm')}
+										<Tag
+											color={
+												entry.status === 'PENDING' ? 'orange' :
+												entry.status === 'APPROVED' ? 'green' :
+												entry.status === 'REJECTED' ? 'red' :
+												entry.status === 'RETURNED' ? 'cyan' :
+												'purple'
+											}
+											style={{ marginLeft: 8 }}
+										>
+											{entry.status}
+										</Tag>
 									</p>
 									{entry.note && <p style={{ margin: '4px 0 0 0', color: '#666' }}>{entry.note}</p>}
 								</Timeline.Item>
