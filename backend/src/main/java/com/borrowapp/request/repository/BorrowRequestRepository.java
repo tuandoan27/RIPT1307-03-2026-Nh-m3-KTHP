@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 // com/borrowapp/request/repository/BorrowRequestRepository.java
->>>>>>> thanh
 package com.borrowapp.request.repository;
 
 import com.borrowapp.common.constants.RequestStatus;
@@ -13,23 +10,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
-<<<<<<< HEAD
+import java.util.Collection;
 import java.util.List;
-=======
->>>>>>> thanh
 
 public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Long> {
 
+    // ── Overlap check (tạo request) ───────────────────────────────────────
     long countByEquipmentIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Long equipmentId,
             RequestStatus status,
             LocalDate endDate,
             LocalDate startDate
     );
-<<<<<<< HEAD
 
-=======
->>>>>>> thanh
     @Query("""
             SELECT COUNT(r) FROM BorrowRequest r
             WHERE r.equipment.id = :equipmentId
@@ -43,8 +36,8 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             @Param("start") LocalDate start,
             @Param("end") LocalDate end
     );
-<<<<<<< HEAD
 
+    // ── Lấy danh sách request ─────────────────────────────────────────────
     Page<BorrowRequest> findByUserIdAndStatus(Long userId, RequestStatus status, Pageable pageable);
 
     Page<BorrowRequest> findByUserId(Long userId, Pageable pageable);
@@ -65,7 +58,7 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             Pageable pageable
     );
 
-    // Dùng cho cron job 00:00 — quét request quá hạn
+    // ── Cron job 00:00 — quét request quá hạn ────────────────────────────
     @Query("""
             SELECT r FROM BorrowRequest r
             JOIN FETCH r.user u
@@ -77,7 +70,7 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             @Param("today") LocalDate today
     );
 
-    // Dùng cho cron job 08:00 — nhắc hạn trả
+    // ── Cron job 08:00 — nhắc hạn trả ────────────────────────────────────
     @Query("""
             SELECT r FROM BorrowRequest r
             JOIN FETCH r.user u
@@ -90,24 +83,52 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             @Param("today") LocalDate today,
             @Param("tomorrow") LocalDate tomorrow
     );
-=======
-    Page<BorrowRequest> findByUserIdAndStatus(Long userId, RequestStatus status, Pageable pageable);
- 
-    Page<BorrowRequest> findByUserId(Long userId, Pageable pageable);
+
+    // ── Booking slots API ─────────────────────────────────────────────────
     @Query("""
-    SELECT r FROM BorrowRequest r
-    JOIN FETCH r.user u
-    JOIN FETCH r.equipment e
-    WHERE (:status IS NULL OR r.status = :status)
-      AND (:keyword IS NULL
-           OR u.fullName LIKE CONCAT('%', CAST(:keyword AS string), '%')
-           OR e.name LIKE CONCAT('%', CAST(:keyword AS string), '%'))
-    ORDER BY r.createdAt DESC
-    """)
-Page<BorrowRequest> findAllWithFilter(
-        @Param("status") RequestStatus status,
-        @Param("keyword") String keyword,
-        Pageable pageable
-);
->>>>>>> thanh
+            SELECT r FROM BorrowRequest r
+            WHERE r.equipment.id = :equipmentId
+              AND r.status = :status
+              AND r.startDate <= :end
+              AND r.endDate >= :start
+            ORDER BY r.startDate ASC
+            """)
+    List<BorrowRequest> findApprovedOverlappingBookings(
+            @Param("equipmentId") Long equipmentId,
+            @Param("status") RequestStatus status,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end
+    );
+
+    // ── Admin Dashboard ───────────────────────────────────────────────────
+    Long countByStatusIn(Collection<RequestStatus> statuses);
+
+    Long countByStatus(RequestStatus status);
+
+    @Query("""
+            SELECT month(r.createdAt), COUNT(r)
+            FROM BorrowRequest r
+            WHERE year(r.createdAt) = :year
+            GROUP BY month(r.createdAt)
+            ORDER BY month(r.createdAt) ASC
+            """)
+    List<Object[]> countGroupByMonth(@Param("year") int year);
+
+    @Query("SELECT r.status, COUNT(r) FROM BorrowRequest r GROUP BY r.status")
+    List<Object[]> countGroupByStatus();
+
+    @Query("""
+            SELECT r.equipment.id, r.equipment.name, COUNT(r)
+            FROM BorrowRequest r
+            WHERE year(r.createdAt) = :year AND month(r.createdAt) = :month
+            GROUP BY r.equipment.id, r.equipment.name
+            ORDER BY COUNT(r) DESC
+            """)
+    List<Object[]> findTop5EquipmentByMonth(
+            @Param("year") int year,
+            @Param("month") int month,
+            Pageable pageable
+    );
+
+    List<BorrowRequest> findTop5ByStatusOrderByCreatedAtDesc(RequestStatus status);
 }
