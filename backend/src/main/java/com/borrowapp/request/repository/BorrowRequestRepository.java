@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// com/borrowapp/request/repository/BorrowRequestRepository.java
+>>>>>>> thanh
 package com.borrowapp.request.repository;
 
 import com.borrowapp.common.constants.RequestStatus;
@@ -9,7 +13,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+<<<<<<< HEAD
 import java.util.List;
+=======
+>>>>>>> thanh
 
 public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Long> {
 
@@ -19,7 +26,10 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             LocalDate endDate,
             LocalDate startDate
     );
+<<<<<<< HEAD
 
+=======
+>>>>>>> thanh
     @Query("""
             SELECT COUNT(r) FROM BorrowRequest r
             WHERE r.equipment.id = :equipmentId
@@ -33,6 +43,7 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             @Param("start") LocalDate start,
             @Param("end") LocalDate end
     );
+<<<<<<< HEAD
 
     Page<BorrowRequest> findByUserIdAndStatus(Long userId, RequestStatus status, Pageable pageable);
 
@@ -79,4 +90,24 @@ public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Lo
             @Param("today") LocalDate today,
             @Param("tomorrow") LocalDate tomorrow
     );
+=======
+    Page<BorrowRequest> findByUserIdAndStatus(Long userId, RequestStatus status, Pageable pageable);
+ 
+    Page<BorrowRequest> findByUserId(Long userId, Pageable pageable);
+    @Query("""
+    SELECT r FROM BorrowRequest r
+    JOIN FETCH r.user u
+    JOIN FETCH r.equipment e
+    WHERE (:status IS NULL OR r.status = :status)
+      AND (:keyword IS NULL
+           OR u.fullName LIKE CONCAT('%', CAST(:keyword AS string), '%')
+           OR e.name LIKE CONCAT('%', CAST(:keyword AS string), '%'))
+    ORDER BY r.createdAt DESC
+    """)
+Page<BorrowRequest> findAllWithFilter(
+        @Param("status") RequestStatus status,
+        @Param("keyword") String keyword,
+        Pageable pageable
+);
+>>>>>>> thanh
 }
