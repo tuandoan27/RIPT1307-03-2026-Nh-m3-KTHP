@@ -4,7 +4,7 @@ import com.borrowapp.activity.util.LoggingHelper;
 import com.borrowapp.notification.entity.NotificationLog;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.repository.NotificationLogRepository;
-import com.borrowapp.notification.service.impl.EmailServiceImpl;
+import com.borrowapp.notification.service.EmailServiceImpl;
 import com.borrowapp.testutil.TestFixtures;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;

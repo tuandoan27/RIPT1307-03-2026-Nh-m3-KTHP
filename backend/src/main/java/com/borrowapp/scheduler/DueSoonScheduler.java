@@ -2,6 +2,7 @@ package com.borrowapp.scheduler;
 
 import com.borrowapp.common.constants.RequestStatus;
 import com.borrowapp.notification.enums.NotificationType;
+import com.borrowapp.notification.service.EmailService;
 import com.borrowapp.notification.service.NotificationService;
 import com.borrowapp.request.entity.BorrowRequest;
 import com.borrowapp.request.repository.BorrowRequestRepository;
@@ -23,6 +24,7 @@ public class DueSoonScheduler {
 
     private final BorrowRequestRepository borrowRequestRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Scheduled(cron = "0 0 8 * * *")
     public void processDueSoonRequests() {
@@ -38,7 +40,7 @@ public class DueSoonScheduler {
             return;
         }
 
-        log.info("[DueSoonScheduler] Bắt đầu gửi nhắc hạn cho {} request.", dueSoonList.size());
+        log.info("[DueSoonScheduler] Bắt đầu xử lý {} request sắp đến hạn.", dueSoonList.size());
 
         int sentCount = 0;
 
@@ -47,12 +49,12 @@ public class DueSoonScheduler {
                 sendDueSoonNotification(request);
                 sentCount++;
             } catch (Exception e) {
-                log.error("[DueSoonScheduler] Lỗi khi gửi nhắc cho request id={}: {}",
+                log.error("[DueSoonScheduler] Lỗi khi xử lý request id={}: {}",
                         request.getId(), e.getMessage());
             }
         }
 
-        log.info("[DueSoonScheduler] Hoàn tất: {}/{} notification đã gửi.",
+        log.info("[DueSoonScheduler] Hoàn tất: {}/{} request đã xử lý.",
                 sentCount, dueSoonList.size());
     }
 
@@ -61,36 +63,24 @@ public class DueSoonScheduler {
         String endDate = request.getEndDate().format(DATE_FORMAT);
         Long userId = request.getUser().getId();
         String userEmail = request.getUser().getEmail();
-        String userName = request.getUser().getFullName();
 
         String inAppMessage = String.format(
-                "Yêu cầu mượn \"%s\" sẽ hết hạn vào ngày %s. Vui lòng trả đúng hạn nhé.",
+                "Yêu cầu mượn \"%s\" sẽ hết hạn vào ngày %s. Vui lòng trả đúng hạn.",
                 equipmentName, endDate
         );
 
-        String emailHtmlBody = String.format("""
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h3>Xin chào %s,</h3>
-                    <p>Đây là nhắc nhở từ hệ thống BorrowApp.</p>
-                    <p>Yêu cầu mượn thiết bị <strong>%s</strong> của bạn sẽ hết hạn vào ngày <strong>%s</strong>.</p>
-                    <p>Vui lòng trả thiết bị đúng hạn để tránh bị tính điểm phạt.</p>
-                    <br/>
-                    <p>Trân trọng,<br/>BorrowApp</p>
-                </div>
-                """, userName, equipmentName, endDate);
-
-        notificationService.sendAndNotify(
+        notificationService.notifyOnly(
                 userId,
                 userEmail,
                 NotificationType.REQUEST_DUE_SOON,
                 "Sắp đến hạn trả thiết bị",
                 inAppMessage,
-                "/requests/" + request.getId(),
-                "[BorrowApp] Sắp đến hạn trả thiết bị",
-                emailHtmlBody
+                "/requests/" + request.getId()
         );
 
-        log.info("[DueSoonScheduler] Đã gửi nhắc cho user id={}, request id={}, hạn trả={}.",
+        emailService.sendDueSoonReminder(request.getUser(), request);
+
+        log.info("[DueSoonScheduler] Đã trigger nhắc hạn → user id={} | request id={} | hạn trả={}.",
                 userId, request.getId(), endDate);
     }
 }

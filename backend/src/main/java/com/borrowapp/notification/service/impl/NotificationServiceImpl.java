@@ -1,9 +1,11 @@
 package com.borrowapp.notification.service.impl;
 
+import com.borrowapp.common.response.PageResponse;
 import com.borrowapp.notification.dto.NotificationBellResponse;
 import com.borrowapp.notification.dto.NotificationLogResponse;
 import com.borrowapp.notification.dto.NotificationResponse;
 import com.borrowapp.notification.entity.Notification;
+import com.borrowapp.notification.entity.NotificationLog;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.enums.NotificationStatus;
 import com.borrowapp.notification.enums.NotificationType;
@@ -17,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,9 +42,7 @@ public class NotificationServiceImpl implements NotificationService {
                                NotificationType type,
                                String title, String message, String link,
                                String emailSubject, String emailHtmlBody) {
-        // 1. Lưu notification in-app (sync)
         saveNotification(recipientId, recipientEmail, type, title, message, link);
-        // 2. Gửi email async (fire and forget)
         emailService.sendAsync(recipientEmail, emailSubject, emailHtmlBody);
     }
 
@@ -117,11 +119,39 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void retryEmail(Long notificationLogId) {
-        // Kiểm tra tồn tại trước khi giao async
         logRepo.findById(notificationLogId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "NotificationLog not found: " + notificationLogId));
         emailService.retryAsync(notificationLogId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<NotificationLogResponse> getNotificationLogs(
+            int page, int pageSize, NotificationLogStatus status) {
+
+        int pageIndex = Math.max(page - 1, 0);
+        Pageable pageable = PageRequest.of(
+                pageIndex,
+                Math.min(Math.max(pageSize, 1), 100),
+                Sort.by("createdAt").descending()
+        );
+
+        Page<NotificationLog> result = (status != null)
+                ? logRepo.findByStatus(status, pageable)
+                : logRepo.findAll(pageable);
+
+        List<NotificationLogResponse> items = result.getContent()
+                .stream()
+                .map(mapper::toLogResponse)
+                .toList();
+
+        return PageResponse.<NotificationLogResponse>builder()
+                .items(items)
+                .total(result.getTotalElements())
+                .page(page)
+                .pageSize(pageSize)
+                .build();
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────

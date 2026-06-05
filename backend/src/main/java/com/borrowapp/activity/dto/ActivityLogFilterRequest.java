@@ -1,18 +1,28 @@
 package com.borrowapp.activity.dto;
 
 import com.borrowapp.common.constants.ActivityLogAction;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class ActivityLogFilterRequest {
 
-    private Long               userId;
-    private ActivityLogAction  action;
-    private String             targetType;
-    private Long               targetId;
+    private int page = 1;
+    private int pageSize = 20;
+
+    private ActivityLogAction action;
+    private Long userId;
+
+    // ─── Dùng cho getLogs() cũ (findWithFilters) ─────────────────────────────
+    private String targetType;
+    private Long targetId;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime from;
@@ -20,6 +30,10 @@ public class ActivityLogFilterRequest {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime to;
 
-    private int page     = 0;
-    private int pageSize = 20;
+    // ─── Dùng cho getActivityLogs() mới (Specification) ──────────────────────
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate startDate;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate endDate;
 }

@@ -1,10 +1,10 @@
-// com/borrowapp/notification/controller/NotificationAdminController.java
 package com.borrowapp.notification.controller;
 
 import com.borrowapp.common.response.ApiResponse;
 import com.borrowapp.common.response.PageResponse;
 import com.borrowapp.common.response.ResponseUtil;
 import com.borrowapp.notification.dto.NotificationLogResponse;
+import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,11 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * Admin API – quản lý email thất bại và retry.
- *
- * Base path: /api/admin/notifications
- */
 @RestController
 @RequestMapping("/api/admin/notifications")
 @RequiredArgsConstructor
@@ -27,10 +22,8 @@ public class NotificationAdminController {
 
     private final NotificationService service;
 
-    /**
-     * GET /api/admin/notifications/failed-emails?page=0&pageSize=20
-     * Xem danh sách email gửi thất bại có phân trang.
-     */
+    // ─── Endpoint cũ — giữ nguyên ────────────────────────────────────────────
+
     @GetMapping("/failed-emails")
     public ResponseEntity<ApiResponse<PageResponse<NotificationLogResponse>>> getFailedEmails(
             @RequestParam(defaultValue = "0")  int page,
@@ -46,20 +39,12 @@ public class NotificationAdminController {
         return ResponseUtil.success("", data);
     }
 
-    /**
-     * POST /api/admin/notifications/retry-email/{id}
-     * Retry gửi lại 1 email cụ thể theo NotificationLog ID.
-     */
     @PostMapping("/retry-email/{id}")
     public ResponseEntity<ApiResponse<Void>> retryEmail(@PathVariable Long id) {
         service.retryEmail(id);
         return ResponseUtil.success("Email retry queued successfully");
     }
 
-    /**
-     * POST /api/admin/notifications/retry-all-failed
-     * Retry toàn bộ email FAILED (tối đa 100 bản ghi/lần).
-     */
     @PostMapping("/retry-all-failed")
     public ResponseEntity<ApiResponse<Map<String, Object>>> retryAllFailed() {
         Page<NotificationLogResponse> failedPage = service.getFailedLogs(0, 100);
@@ -68,5 +53,16 @@ public class NotificationAdminController {
                 failedPage.getTotalElements() + " email(s) queued for retry",
                 Map.of("queued", failedPage.getTotalElements())
         );
+    }
+
+    @GetMapping("/logs")
+    public ResponseEntity<ApiResponse<PageResponse<NotificationLogResponse>>> getNotificationLogs(
+            @RequestParam(defaultValue = "1")  int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false)    NotificationLogStatus status
+    ) {
+        PageResponse<NotificationLogResponse> result =
+                service.getNotificationLogs(page, pageSize, status);
+        return ResponseUtil.success("", result);
     }
 }

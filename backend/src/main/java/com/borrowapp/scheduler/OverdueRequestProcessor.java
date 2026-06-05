@@ -1,8 +1,8 @@
-// com/borrowapp/scheduler/OverdueRequestProcessor.java
 package com.borrowapp.scheduler;
 
 import com.borrowapp.common.constants.RequestStatus;
 import com.borrowapp.common.utils.TransitionValidator;
+import com.borrowapp.notification.service.EmailService;
 import com.borrowapp.penalty.entity.Penalty;
 import com.borrowapp.penalty.repository.PenaltyRepository;
 import com.borrowapp.request.entity.BorrowRequest;
@@ -25,11 +25,8 @@ public class OverdueRequestProcessor {
     private final BorrowRequestRepository borrowRequestRepository;
     private final UserRepository          userRepository;
     private final PenaltyRepository       penaltyRepository;
+    private final EmailService            emailService;
 
-    /**
-     * Xử lý từng request trong transaction riêng lẻ.
-     * Trả về true nếu user bị khóa trong lần xử lý này.
-     */
     @Transactional
     public boolean process(BorrowRequest request, LocalDate today) {
         // Idempotency — bỏ qua nếu đã xử lý rồi
@@ -38,19 +35,16 @@ public class OverdueRequestProcessor {
             return false;
         }
 
-        // Validate transition APPROVED → OVERDUE
         if (!TransitionValidator.isValidTransition(request.getStatus(), RequestStatus.OVERDUE)) {
             log.warn("[OverdueScheduler] Transition không hợp lệ cho request id={}, status hiện tại={}.",
                     request.getId(), request.getStatus());
             return false;
         }
 
-        // Tính số ngày quá hạn và điểm phạt
         long daysOverdue = ChronoUnit.DAYS.between(request.getEndDate(), today);
         int penaltyPoints = daysOverdue <= 3 ? 1 : 3;
         String reason = String.format("Quá hạn %d ngày", daysOverdue);
 
-        // Cập nhật user
         User user = request.getUser();
         user.setPenaltyPoint(user.getPenaltyPoint() + penaltyPoints);
 
@@ -62,14 +56,15 @@ public class OverdueRequestProcessor {
                     user.getId(), user.getPenaltyPoint());
         }
 
-        // Cập nhật request
         request.setStatus(RequestStatus.OVERDUE);
         request.setPenaltyApplied(true);
+
+
+        String equipmentName = request.getEquipment().getName();
 
         userRepository.save(user);
         borrowRequestRepository.save(request);
 
-        // Lưu lịch sử điểm phạt
         penaltyRepository.save(Penalty.builder()
                 .user(user)
                 .borrowRequest(request)
@@ -77,8 +72,11 @@ public class OverdueRequestProcessor {
                 .reason(reason)
                 .build());
 
-        log.info("[OverdueScheduler] Request id={} → OVERDUE | user id={} | +{} điểm | tổng={} điểm.",
-                request.getId(), user.getId(), penaltyPoints, user.getPenaltyPoint());
+        log.info("[OverdueScheduler] Request id={} → OVERDUE | equipment='{}' | user id={} | +{} điểm | tổng={} điểm.",
+                request.getId(), equipmentName, user.getId(), penaltyPoints, user.getPenaltyPoint());
+
+
+        emailService.sendOverdueWarning(user, request);
 
         return justLocked;
     }
