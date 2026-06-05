@@ -1,4 +1,3 @@
-// com/borrowapp/user/dto/UserProfileResponse.java
 package com.borrowapp.user.dto;
 
 import com.borrowapp.common.constants.Role;
@@ -11,6 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 public class UserProfileResponse {
     private String fullName;
+    private String studentCode;
     private String email;
     private Role role;
     private Integer penaltyPoint;

@@ -1,7 +1,10 @@
+// com/borrowapp/scheduler/OverdueRequestProcessor.java
 package com.borrowapp.scheduler;
 
 import com.borrowapp.common.constants.RequestStatus;
 import com.borrowapp.common.utils.TransitionValidator;
+import com.borrowapp.penalty.entity.Penalty;
+import com.borrowapp.penalty.repository.PenaltyRepository;
 import com.borrowapp.request.entity.BorrowRequest;
 import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.entity.User;
@@ -20,7 +23,8 @@ import java.time.temporal.ChronoUnit;
 public class OverdueRequestProcessor {
 
     private final BorrowRequestRepository borrowRequestRepository;
-    private final UserRepository userRepository;
+    private final UserRepository          userRepository;
+    private final PenaltyRepository       penaltyRepository;
 
     /**
      * Xử lý từng request trong transaction riêng lẻ.
@@ -43,11 +47,12 @@ public class OverdueRequestProcessor {
 
         // Tính số ngày quá hạn và điểm phạt
         long daysOverdue = ChronoUnit.DAYS.between(request.getEndDate(), today);
-        int penaltyPoint = daysOverdue <= 3 ? 1 : 3;
+        int penaltyPoints = daysOverdue <= 3 ? 1 : 3;
+        String reason = String.format("Quá hạn %d ngày", daysOverdue);
 
         // Cập nhật user
         User user = request.getUser();
-        user.setPenaltyPoint(user.getPenaltyPoint() + penaltyPoint);
+        user.setPenaltyPoint(user.getPenaltyPoint() + penaltyPoints);
 
         boolean justLocked = false;
         if (!user.isLocked() && user.getPenaltyPoint() >= 10) {
@@ -64,8 +69,16 @@ public class OverdueRequestProcessor {
         userRepository.save(user);
         borrowRequestRepository.save(request);
 
+        // Lưu lịch sử điểm phạt
+        penaltyRepository.save(Penalty.builder()
+                .user(user)
+                .borrowRequest(request)
+                .points(penaltyPoints)
+                .reason(reason)
+                .build());
+
         log.info("[OverdueScheduler] Request id={} → OVERDUE | user id={} | +{} điểm | tổng={} điểm.",
-                request.getId(), user.getId(), penaltyPoint, user.getPenaltyPoint());
+                request.getId(), user.getId(), penaltyPoints, user.getPenaltyPoint());
 
         return justLocked;
     }

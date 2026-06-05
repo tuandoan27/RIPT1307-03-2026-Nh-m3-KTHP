@@ -5,11 +5,14 @@ import com.borrowapp.common.response.ApiResponse;
 import com.borrowapp.common.response.ResponseUtil;
 import com.borrowapp.user.dto.ChangePasswordRequest;
 import com.borrowapp.user.dto.UserProfileResponse;
+import com.borrowapp.user.dto.PenaltyResponse;
 import com.borrowapp.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -21,6 +24,11 @@ public class StudentProfileController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getMyProfile() {
         return ResponseUtil.success("", userService.getMyProfile());
+    }
+
+    @GetMapping("/me/penalties")
+    public ResponseEntity<ApiResponse<List<PenaltyResponse>>> getMyPenalties() {
+        return ResponseUtil.success("", userService.getMyPenalties());
     }
 
     @PutMapping("/me/password")

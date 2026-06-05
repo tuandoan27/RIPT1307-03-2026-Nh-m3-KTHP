@@ -3,6 +3,7 @@ package com.borrowapp.user.service;
 import com.borrowapp.common.constants.Role;
 import com.borrowapp.common.exception.ResourceNotFoundException;
 import com.borrowapp.common.response.PageResponse;
+import com.borrowapp.penalty.repository.PenaltyRepository;
 import com.borrowapp.common.exception.BadRequestException;
 import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.dto.UserDetailResponse;
@@ -13,6 +14,7 @@ import com.borrowapp.user.dto.UserProfileResponse;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
 import com.borrowapp.user.repository.UserSpecification;
+import com.borrowapp.user.dto.PenaltyResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.borrowapp.penalty.entity.Penalty;
+import com.borrowapp.penalty.repository.PenaltyRepository;
 
 import java.util.List;
 
@@ -34,7 +38,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final BorrowRequestRepository borrowRequestRepository;
     private final PasswordEncoder passwordEncoder;
-
+    private final PenaltyRepository penaltyRepository;
+    
 
     @Transactional(readOnly = true)
     public PageResponse<UserListItemResponse> getUsers(
@@ -163,6 +168,7 @@ public UserProfileResponse getMyProfile() {
     User user = getCurrentUser();
     return UserProfileResponse.builder()
             .fullName(user.getFullName())
+            .studentCode(user.getStudentCode())
             .email(user.getEmail())
             .role(user.getRole())
             .penaltyPoint(user.getPenaltyPoint())
@@ -187,6 +193,18 @@ private User getCurrentUser() {
     String email = SecurityContextHolder.getContext().getAuthentication().getName();
     return userRepository.findByEmail(email)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+}
+@Transactional(readOnly = true)
+public List<PenaltyResponse> getMyPenalties() {
+    User user = getCurrentUser();
+    return penaltyRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
+            .stream()
+            .map(p -> PenaltyResponse.builder()
+                    .points(p.getPoints())
+                    .reason(p.getReason())
+                    .createdAt(p.getCreatedAt())
+                    .build())
+            .toList();
 }
 
 }
