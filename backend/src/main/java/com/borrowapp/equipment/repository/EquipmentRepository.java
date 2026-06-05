@@ -20,4 +20,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     // Dùng khi có keyword — ignore case
     Page<Equipment> findByIsDeletedFalseAndNameContainingIgnoreCase(String keyword, Pageable pageable);
+
+    Long countByIsDeletedFalse();
 }

@@ -8,6 +8,8 @@ import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.dto.UserDetailResponse;
 import com.borrowapp.user.dto.UserListItemResponse;
 import com.borrowapp.user.dto.UserRequestHistoryItem;
+import com.borrowapp.user.dto.ChangePasswordRequest;
+import com.borrowapp.user.dto.UserProfileResponse;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
 import com.borrowapp.user.repository.UserSpecification;
@@ -15,10 +17,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 
@@ -28,6 +33,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final BorrowRequestRepository borrowRequestRepository;
+    private final PasswordEncoder passwordEncoder;
 
 
     @Transactional(readOnly = true)
@@ -151,4 +157,36 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
+
+    @Transactional(readOnly = true)
+public UserProfileResponse getMyProfile() {
+    User user = getCurrentUser();
+    return UserProfileResponse.builder()
+            .fullName(user.getFullName())
+            .email(user.getEmail())
+            .role(user.getRole())
+            .penaltyPoint(user.getPenaltyPoint())
+            .isLocked(user.isLocked())
+            .createdAt(user.getCreatedAt())
+            .build();
+}
+ 
+@Transactional
+public void changePassword(ChangePasswordRequest request) {
+    User user = getCurrentUser();
+ 
+    if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+        throw new BadRequestException("Mật khẩu cũ không đúng");
+    }
+ 
+    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+    userRepository.save(user);
+}
+ 
+private User getCurrentUser() {
+    String email = SecurityContextHolder.getContext().getAuthentication().getName();
+    return userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+}
+
 }
