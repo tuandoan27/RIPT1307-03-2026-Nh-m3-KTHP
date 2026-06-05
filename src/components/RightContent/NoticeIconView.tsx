@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Badge, List, Popover, Button, Avatar, Typography, message } from 'antd';
 import { BellOutlined, NotificationOutlined, CheckOutlined } from '@ant-design/icons';
 import { history } from 'umi';
+import axios from '@/utils/axios';
 
 interface MockNotification {
 	id: string;
@@ -14,76 +15,73 @@ interface MockNotification {
 
 const NoticeIconView: React.FC = () => {
 	const [notifications, setNotifications] = useState<MockNotification[]>([]);
+	const [unreadCount, setUnreadCount] = useState(0);
 
 	const getIcon = (type?: string) => {
 		switch (type) {
-			case 'success':
+			case 'REQUEST_APPROVED':
 				return <Avatar style={{ backgroundColor: '#52c41a' }} icon={<NotificationOutlined />} />;
-			case 'error':
+			case 'REQUEST_REJECTED':
 				return <Avatar style={{ backgroundColor: '#ff4d4f' }} icon={<NotificationOutlined />} />;
-			case 'warning':
+			case 'REQUEST_OVERDUE':
 				return <Avatar style={{ backgroundColor: '#faad14' }} icon={<NotificationOutlined />} />;
 			default:
 				return <Avatar style={{ backgroundColor: '#1890ff' }} icon={<NotificationOutlined />} />;
 		}
 	};
 
-	const loadNotifications = () => {
-		const stored = localStorage.getItem('mockNotifications');
-		if (stored) {
-			try {
-				const list = JSON.parse(stored);
-				const mapped = list.map((item: any) => ({
-					id: item.id,
-					title: item.title,
-					description: item.content,
-					datetime: item.createdDate,
-					read: item.read,
-					type: item.type,
-				}));
-				setNotifications(mapped);
-			} catch (e) {
-				console.error(e);
+	const loadNotifications = async () => {
+		try {
+			const response = await axios.get('/notifications', {
+				params: {
+					page: 0,
+					pageSize: 10,
+				},
+			});
+			const data = response.data?.data;
+			if (data) {
+				setUnreadCount(data.unreadCount || 0);
+				if (Array.isArray(data.items)) {
+					const mapped = data.items.map((item: any) => ({
+						id: String(item.id),
+						title: item.title,
+						description: item.message,
+						datetime: item.createdAt,
+						read: item.status === 'READ',
+						type: item.type,
+					}));
+					setNotifications(mapped);
+				}
 			}
+		} catch (e) {
+			console.error('Failed to load notifications:', e);
 		}
 	};
 
 	React.useEffect(() => {
 		loadNotifications();
-		// Listen for local storage updates to keep header sync'd
-		window.addEventListener('storage', loadNotifications);
-		return () => window.removeEventListener('storage', loadNotifications);
+		// Poll every 30 seconds to keep notice count fresh
+		const timer = setInterval(loadNotifications, 30000);
+		return () => clearInterval(timer);
 	}, []);
 
-	const unreadCount = notifications.filter((item) => !item.read).length;
-
-	const handleItemClick = (id: string) => {
-		const stored = localStorage.getItem('mockNotifications');
-		if (stored) {
-			try {
-				const list = JSON.parse(stored);
-				const updated = list.map((item: any) => (item.id === id ? { ...item, read: true } : item));
-				localStorage.setItem('mockNotifications', JSON.stringify(updated));
-				loadNotifications();
-				message.info('Đã đánh dấu đọc thông báo.');
-			} catch (e) {
-				console.error(e);
-			}
+	const handleItemClick = async (id: string) => {
+		try {
+			await axios.put(`/notifications/${id}/read`);
+			loadNotifications();
+			message.info('Đã đánh dấu đọc thông báo.');
+		} catch (e) {
+			console.error(e);
 		}
 	};
 
-	const handleMarkAllRead = () => {
-		const stored = localStorage.getItem('mockNotifications');
-		if (stored) {
-			try {
-				const list = JSON.parse(stored);
-				const updated = list.map((item: any) => ({ ...item, read: true }));
-				localStorage.setItem('mockNotifications', JSON.stringify(updated));
-				loadNotifications();
-				message.success('Đã đánh dấu đọc tất cả thông báo.');
-			} catch (e) {
-				console.error(e);
-			}
+	const handleMarkAllRead = async () => {
+		try {
+			await axios.put('/notifications/read-all');
+			loadNotifications();
+			message.success('Đã đánh dấu đọc tất cả thông báo.');
+		} catch (e) {
+			console.error(e);
 		}
 	};
 

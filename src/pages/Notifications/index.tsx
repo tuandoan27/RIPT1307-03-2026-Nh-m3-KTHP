@@ -5,6 +5,7 @@ import { history } from 'umi';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
+import axios from '@/utils/axios';
 import styles from './index.less';
 
 dayjs.extend(relativeTime);
@@ -25,83 +26,65 @@ const Notifications: React.FC = () => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const pageSize = 10;
 	const [loading, setLoading] = useState(true);
+	const [totalItems, setTotalItems] = useState(0);
+	const [unreadCount, setUnreadCount] = useState(0);
 
 	// Fetch notifications
 	useEffect(() => {
 		const fetchNotifications = async () => {
 			setLoading(true);
 			try {
-				let storedNotifs = localStorage.getItem('mockNotifications');
-				let notifList: Notification[] = [];
-				if (storedNotifs) {
-					notifList = JSON.parse(storedNotifs);
+				const response = await axios.get('/notifications', {
+					params: {
+						page: currentPage - 1, // backend is 0-based page
+						pageSize,
+					}
+				});
+				const data = response.data?.data;
+				if (data && Array.isArray(data.items)) {
+					const mapped = data.items.map((item: any) => ({
+						id: String(item.id),
+						title: item.title,
+						content: item.message,
+						type: item.type === 'REQUEST_APPROVED' ? 'success' :
+							item.type === 'REQUEST_REJECTED' ? 'error' :
+							item.type === 'REQUEST_OVERDUE' ? 'warning' : 'info',
+						read: item.status === 'READ',
+						createdDate: item.createdAt,
+						relatedUrl: item.link || undefined,
+					}));
+					setNotifications(mapped);
+					setTotalItems(data.total || mapped.length);
+					setUnreadCount(Number(data.unreadCount || 0));
 				} else {
-					notifList = [
-						{
-							id: '1',
-							title: 'Yêu cầu được phê duyệt',
-							content: 'Yêu cầu mượn Laptop Dell XPS 15 của bạn đã được phê duyệt. Vui lòng nhận thiết bị tại phòng quản lý.',
-							type: 'success',
-							read: false,
-							createdDate: dayjs().subtract(2, 'hours').format('YYYY-MM-DD HH:mm'),
-							relatedUrl: '/my-requests',
-						},
-						{
-							id: '2',
-							title: 'Thông báo về ngày trả',
-							content: 'Vui lòng nhắc nhở bạn trả Máy Chiếu Epson vào ngày 28/05/2026.',
-							type: 'info',
-							read: false,
-							createdDate: dayjs().subtract(1, 'days').format('YYYY-MM-DD HH:mm'),
-							relatedUrl: '/my-requests',
-						},
-						{
-							id: '3',
-							title: 'Thiết bị quá hạn',
-							content: 'Bạn có thiết bị iPad Pro 12.9 đang quá hạn trả. Vui lòng trả lại ngay hôm nay.',
-							type: 'error',
-							read: true,
-							createdDate: dayjs().subtract(3, 'days').format('YYYY-MM-DD HH:mm'),
-							relatedUrl: '/my-requests',
-						},
-						{
-							id: '4',
-							title: 'Yêu cầu bị từ chối',
-							content: 'Yêu cầu mượn Bộ Vi Xử Lý Raspberry Pi của bạn đã bị từ chối. Lý do: Thiết bị không có sẵn trong khoảng thời gian yêu cầu.',
-							type: 'warning',
-							read: true,
-							createdDate: dayjs().subtract(5, 'days').format('YYYY-MM-DD HH:mm'),
-							relatedUrl: '/my-requests',
-						},
-						{
-							id: '5',
-							title: 'Thông báo bảo trì hệ thống',
-							content: 'Hệ thống sẽ bảo trì vào ngày 01/06/2026 từ 22:00 đến 02:00. Vui lòng không sử dụng trong khoảng thời gian này.',
-							type: 'info',
-							read: true,
-							createdDate: dayjs().subtract(7, 'days').format('YYYY-MM-DD HH:mm'),
-						},
-					];
-					localStorage.setItem('mockNotifications', JSON.stringify(notifList));
+					setNotifications([]);
+					setTotalItems(0);
+					setUnreadCount(0);
 				}
-				setNotifications(notifList.sort((a, b) => dayjs(b.createdDate).diff(dayjs(a.createdDate))));
 			} catch (error) {
 				console.error('Failed to fetch notifications:', error);
+				setNotifications([]);
+				setTotalItems(0);
+				setUnreadCount(0);
 			} finally {
 				setLoading(false);
 			}
 		};
 		fetchNotifications();
-	}, []);
+	}, [currentPage]);
 
 	// Mark notification as read and navigate
 	const handleNotificationClick = async (notification: Notification) => {
 		try {
-			const updated = notifications.map((n) =>
-				n.id === notification.id ? { ...n, read: true } : n
-			);
-			setNotifications(updated);
-			localStorage.setItem('mockNotifications', JSON.stringify(updated));
+			if (!notification.read) {
+				await axios.put(`/notifications/${notification.id}/read`);
+				setNotifications(
+					notifications.map((n) =>
+						n.id === notification.id ? { ...n, read: true } : n
+					)
+				);
+				setUnreadCount((prev) => Math.max(0, prev - 1));
+			}
 
 			if (notification.relatedUrl) {
 				history.push(notification.relatedUrl);
@@ -118,20 +101,21 @@ const Notifications: React.FC = () => {
 			content: 'Bạn có chắc muốn đánh dấu tất cả thông báo đã đọc không?',
 			okText: 'Có',
 			cancelText: 'Không',
-			onOk: () => {
-				const updated = notifications.map((n) => ({ ...n, read: true }));
-				setNotifications(updated);
-				localStorage.setItem('mockNotifications', JSON.stringify(updated));
-				message.success('Đã đánh dấu tất cả thông báo đã đọc');
+			onOk: async () => {
+				try {
+					await axios.put('/notifications/read-all');
+					setNotifications(notifications.map((n) => ({ ...n, read: true })));
+					setUnreadCount(0);
+					message.success('Đã đánh dấu tất cả thông báo đã đọc');
+				} catch (error) {
+					message.error('Không thể đánh dấu tất cả thông báo');
+				}
 			},
 		});
 	};
 
-	const unreadCount = notifications.filter((n) => !n.read).length;
-
 	// Paginate notifications
-	const startIndex = (currentPage - 1) * pageSize;
-	const paginatedNotifications = notifications.slice(startIndex, startIndex + pageSize);
+	const paginatedNotifications = notifications;
 
 	// Get icon based on type
 	const getIcon = (type: string) => {
@@ -238,7 +222,7 @@ const Notifications: React.FC = () => {
 							<Pagination
 								current={currentPage}
 								pageSize={pageSize}
-								total={notifications.length}
+								total={totalItems}
 								onChange={setCurrentPage}
 								showSizeChanger={false}
 							/>

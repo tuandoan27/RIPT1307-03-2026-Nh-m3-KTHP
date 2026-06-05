@@ -26,12 +26,37 @@ const EquipmentDetail: React.FC = () => {
 	const [equipment, setEquipment] = useState<Equipment | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
-	const [bookedDates] = useState<BookedDate[]>([]);
+	const [bookedDates, setBookedDates] = useState<BookedDate[]>([]);
 	const [accountLocked, setAccountLocked] = useState(false);
 	const [lockReason, setLockReason] = useState('');
 	const [form] = Form.useForm();
 
 	const { initialState } = useModel('@@initialState');
+
+	// Fetch bookings
+	const fetchBookings = async () => {
+		try {
+			const response = await axios.get(`/equipment/${id}/bookings`);
+			const bookings = response.data?.data || [];
+			const datesMap: { [dateStr: string]: number } = {};
+			bookings.forEach((booking: any) => {
+				let current = moment(booking.startDate);
+				const end = moment(booking.endDate);
+				while (current.isSameOrBefore(end, 'day')) {
+					const dateStr = current.format('YYYY-MM-DD');
+					datesMap[dateStr] = (datesMap[dateStr] || 0) + 1;
+					current = current.add(1, 'day');
+				}
+			});
+			const formatted: BookedDate[] = Object.keys(datesMap).map((date) => ({
+				date,
+				bookedCount: datesMap[date],
+			}));
+			setBookedDates(formatted);
+		} catch (error) {
+			console.error('Failed to fetch bookings:', error);
+		}
+	};
 
 	// Fetch equipment detail
 	useEffect(() => {
@@ -58,6 +83,7 @@ const EquipmentDetail: React.FC = () => {
 			}
 		};
 		fetchEquipment();
+		fetchBookings();
 
 		// Check account status from initialState
 		if (initialState?.currentUser) {

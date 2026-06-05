@@ -44,4 +44,9 @@ public class EquipmentController {
         OverlapCheckResponse data = equipmentService.checkOverlap(id, start, end);
         return ResponseUtil.success("Kiểm tra khả dụng thành công", data);
     }
+    @GetMapping("/{id}/bookings")
+    public ResponseEntity<ApiResponse<java.util.List<com.borrowapp.request.dto.BorrowRequestResponse>>> getBookings(
+            @PathVariable Long id) {
+        return ResponseUtil.success("Lấy danh sách đặt lịch thành công", equipmentService.getBookings(id));
+    }
 }

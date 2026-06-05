@@ -82,20 +82,26 @@ const Profile: React.FC = () => {
 		fetchProfile();
 	}, []);
 
-	// Handle password change (Mock)
+	// Handle password change
 	const handlePasswordChange = async (values: any) => {
-		if (values.newPassword !== values.confirmPassword) {
-			message.error('Mật khẩu mới và xác nhận không khớp!');
-			return;
-		}
-
 		setPasswordSubmitting(true);
-		// Delay to feel real
-		await new Promise(r => setTimeout(r, 600));
-		message.success('Đổi mật khẩu thành công! (Chế độ giả lập)');
-		passwordForm.resetFields();
-		setPasswordModalVisible(false);
-		setPasswordSubmitting(false);
+		try {
+			await axios.put('/auth/change-password', {
+				oldPassword: values.oldPassword,
+				newPassword: values.newPassword,
+			});
+			message.success('Đổi mật khẩu thành công!');
+			passwordForm.resetFields();
+			setPasswordModalVisible(false);
+		} catch (error: any) {
+			console.error('Failed to change password:', error);
+			message.error(
+				error?.response?.data?.message ||
+				'Không thể đổi mật khẩu. Mật khẩu cũ không chính xác.'
+			);
+		} finally {
+			setPasswordSubmitting(false);
+		}
 	};
 
 	if (loading || !profile) {

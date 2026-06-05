@@ -67,9 +67,81 @@ const MyRequests: React.FC = () => {
 
 	const handleViewDetail = async (record: BorrowRequest) => {
 		try {
-			const response = await axios.get(`/requests/${record.id}`);
-			const detail = response.data?.data;
+			const detailResponse = await axios.get(`/requests/${record.id}`);
+			const detail = detailResponse.data?.data;
 			if (detail) {
+				let logs: any[] = [];
+				try {
+					const logsResponse = await axios.get(`/requests/${record.id}/logs`);
+					logs = logsResponse.data?.data || [];
+				} catch (err) {
+					console.error('Failed to fetch request logs:', err);
+				}
+
+				const historyEntries: HistoryEntry[] = logs.map((log: any) => {
+					let status = 'PENDING';
+					let note = '';
+					
+					let detailObj: any = {};
+					if (typeof log.detail === 'string') {
+						try {
+							detailObj = JSON.parse(log.detail);
+						} catch (e) {}
+					} else if (typeof log.detail === 'object') {
+						detailObj = log.detail || {};
+					}
+
+					switch (log.action) {
+						case 'CREATE_REQUEST':
+							status = 'PENDING';
+							note = detail.note || 'Yêu cầu được tạo';
+							break;
+						case 'APPROVE_REQUEST':
+							status = 'APPROVED';
+							note = 'Yêu cầu mượn thiết bị đã được duyệt';
+							break;
+						case 'REJECT_REQUEST':
+							status = 'REJECTED';
+							note = detailObj.reason || detail.reason || 'Yêu cầu bị từ chối';
+							break;
+						case 'RETURN_REQUEST':
+							status = 'RETURNED';
+							note = 'Đã hoàn trả thiết bị';
+							break;
+						case 'MARK_OVERDUE':
+							status = 'OVERDUE';
+							note = 'Quá hạn trả thiết bị';
+							break;
+						default:
+							status = log.action;
+							note = log.detail || '';
+					}
+
+					return {
+						status,
+						date: log.createdAt,
+						user: log.userName || 'Hệ thống',
+						note,
+					};
+				});
+
+				if (historyEntries.length === 0) {
+					historyEntries.push({
+						status: 'PENDING',
+						date: detail.createdAt,
+						user: detail.studentName || 'Sinh viên',
+						note: detail.note || 'Yêu cầu được tạo',
+					});
+					if (detail.status !== 'PENDING') {
+						historyEntries.push({
+							status: detail.status,
+							date: detail.createdAt,
+							user: detail.status === 'REJECTED' ? 'Người duyệt' : 'Hệ thống',
+							note: detail.status === 'REJECTED' ? detail.reason : undefined,
+						});
+					}
+				}
+
 				const mappedDetail: BorrowRequest = {
 					id: String(detail.id),
 					equipmentName: detail.equipmentName,
@@ -78,20 +150,7 @@ const MyRequests: React.FC = () => {
 					createdDate: detail.createdAt,
 					status: detail.status,
 					rejectionReason: detail.reason || undefined,
-					history: [
-						{
-							status: 'PENDING',
-							date: detail.createdAt,
-							user: detail.studentName || 'Sinh viên',
-							note: detail.note || 'Yêu cầu được tạo',
-						},
-						...(detail.status !== 'PENDING' ? [{
-							status: detail.status,
-							date: detail.createdAt,
-							user: detail.status === 'REJECTED' ? 'Người duyệt' : 'Hệ thống',
-							note: detail.status === 'REJECTED' ? detail.reason : undefined,
-						}] : [])
-					],
+					history: [...historyEntries].reverse(),
 				};
 				setSelectedRequest(mappedDetail);
 				setModalVisible(true);

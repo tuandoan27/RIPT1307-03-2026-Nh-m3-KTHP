@@ -73,6 +73,12 @@ public class BorrowRequestController {
         BorrowRequestDetailResponse data = borrowRequestService.getRequestById(id);
         return ResponseUtil.success("", data);
     }
+    @GetMapping("/{id}/logs")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+    public ResponseEntity<ApiResponse<java.util.List<com.borrowapp.activity.dto.ActivityLogResponse>>> getRequestLogs(
+            @PathVariable Long id) {
+        return ResponseUtil.success("Lấy lịch sử thay đổi thành công", borrowRequestService.getRequestLogs(id));
+    }
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<BorrowRequestListItemResponse>>> getAllRequests(

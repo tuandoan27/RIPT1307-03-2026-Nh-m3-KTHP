@@ -10,8 +10,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Long> {
+
+    List<BorrowRequest> findByEquipmentIdAndStatus(Long equipmentId, RequestStatus status);
 
     long countByEquipmentIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Long equipmentId,

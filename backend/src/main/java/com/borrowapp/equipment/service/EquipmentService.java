@@ -11,6 +11,7 @@ import com.borrowapp.equipment.dto.EquipmentListResponse;
 import com.borrowapp.equipment.entity.Equipment; 
 import com.borrowapp.equipment.repository.EquipmentRepository;
 import com.borrowapp.request.repository.BorrowRequestRepository;
+import com.borrowapp.request.dto.BorrowRequestResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -81,5 +82,16 @@ public class EquipmentService {
         );
  
         return OverlapCheckResponse.of(equipmentId, approvedCount, equipment.getTotalQuantity());
+    }
+
+    public List<BorrowRequestResponse> getBookings(Long equipmentId) {
+        // Verify equipment exists
+        equipmentRepository.findByIdAndIsDeletedFalse(equipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thiết bị"));
+
+        return borrowRequestRepository.findByEquipmentIdAndStatus(equipmentId, RequestStatus.APPROVED)
+                .stream()
+                .map(BorrowRequestResponse::fromEntity)
+                .toList();
     }
 }
