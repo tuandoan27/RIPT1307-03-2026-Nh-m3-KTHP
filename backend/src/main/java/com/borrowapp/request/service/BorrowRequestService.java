@@ -103,12 +103,35 @@ public class BorrowRequestService {
                 .note(request.getNote())
                 .build();
 
-        return BorrowRequestResponse.fromEntity(borrowRequestRepository.save(borrowRequest));
-    }
+        BorrowRequest saved = borrowRequestRepository.save(borrowRequest);
 
-    // ══════════════════════════════════════════════════════════════════════
-    // APPROVE — email + log
-    // ══════════════════════════════════════════════════════════════════════
+        try {
+        notificationService.notifyOnly(
+            user.getId(),
+            user.getEmail(),
+            NotificationType.REQUEST_CREATED,
+            "Gửi yêu cầu thành công",
+            "Yêu cầu mượn thiết bị \"" + equipment.getName() + "\" đã được gửi, vui lòng chờ admin duyệt.",
+            "/requests/" + saved.getId()
+        );
+        } catch (Exception ex) {
+         log.error("[CreateRequest] Notify failed | requestId={} err={}", saved.getId(), ex.getMessage());
+        }
+
+        try {
+        loggingHelper.log(
+            user.getId(),
+            user.getFullName(),
+            ActivityLogAction.CREATE_REQUEST,
+            "REQUEST", saved.getId(),
+            "Sinh viên tạo yêu cầu mượn thiết bị: " + equipment.getName()
+        );
+        } catch (Exception ex) {
+                log.error("[CreateRequest] Log failed | requestId={} err={}", saved.getId(), ex.getMessage());
+        }
+
+        return BorrowRequestResponse.fromEntity(saved);
+        }
 
     @Transactional
     public void approveRequest(Long requestId) {
@@ -145,7 +168,6 @@ public class BorrowRequestService {
         borrowRequestRepository.save(request);
         equipmentRepository.save(equipment);
 
-        // ── Side effects (chạy sau khi state đã commit logic xong) ──────────
         User actor   = currentActor();
         User borrower = request.getUser();
 
@@ -180,9 +202,6 @@ public class BorrowRequestService {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // REJECT — email + log
-    // ══════════════════════════════════════════════════════════════════════
 
     @Transactional
     public void rejectRequest(Long requestId, RejectRequestBody body) {
@@ -198,7 +217,6 @@ public class BorrowRequestService {
         request.setReason(body.getReason());
         borrowRequestRepository.save(request);
 
-        // ── Side effects ─────────────────────────────────────────────────────
         User actor     = currentActor();
         User borrower  = request.getUser();
         Equipment equipment = request.getEquipment();
@@ -234,9 +252,6 @@ public class BorrowRequestService {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // RETURN — chỉ log, không gửi email (theo spec)
-    // ══════════════════════════════════════════════════════════════════════
 
     @Transactional
     public void returnRequest(Long requestId) {
@@ -258,7 +273,6 @@ public class BorrowRequestService {
         borrowRequestRepository.save(request);
         equipmentRepository.save(equipment);
 
-        // ── Side effect: chỉ log ─────────────────────────────────────────────
         User actor   = currentActor();
         User borrower = request.getUser();
         try {
@@ -273,10 +287,6 @@ public class BorrowRequestService {
             log.error("[ReturnRequest] Log failed | requestId={} err={}", requestId, ex.getMessage());
         }
     }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // READ
-    // ══════════════════════════════════════════════════════════════════════
 
     public PageResponse<BorrowRequestListItemResponse> getMyRequests(
             int page, int pageSize, RequestStatus status) {
@@ -346,10 +356,6 @@ public class BorrowRequestService {
                 .pageSize(pageSize)
                 .build();
     }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // Private helpers
-    // ══════════════════════════════════════════════════════════════════════
 
     private User currentActor() {
         try {

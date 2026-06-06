@@ -6,6 +6,8 @@ import com.borrowapp.common.constants.ActivityLogAction;
 import com.borrowapp.common.response.PageResponse;
 import org.springframework.data.domain.Page;
 
+import java.util.List;
+
 public interface ActivityLogService {
 
     void log(Long actorId, String actorName, ActivityLogAction action,
@@ -19,4 +21,6 @@ public interface ActivityLogService {
     Page<ActivityLogResponse> getLogs(ActivityLogFilterRequest filter);
 
     PageResponse<ActivityLogResponse> getActivityLogs(ActivityLogFilterRequest filter);
+
+    List<ActivityLogResponse> getRequestHistory(Long requestId);
 }

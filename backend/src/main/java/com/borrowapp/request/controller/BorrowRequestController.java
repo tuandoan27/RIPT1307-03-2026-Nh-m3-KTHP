@@ -15,6 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.borrowapp.activity.dto.ActivityLogResponse;
+import com.borrowapp.activity.service.ActivityLogService;
+import java.util.List;
+
+import com.borrowapp.activity.service.ActivityLogService;
 import com.borrowapp.common.constants.RequestStatus;
 
 
@@ -24,6 +29,7 @@ import com.borrowapp.common.constants.RequestStatus;
 public class BorrowRequestController {
 
     private final BorrowRequestService borrowRequestService;
+    private final ActivityLogService activityLogService;
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
@@ -84,5 +90,12 @@ public class BorrowRequestController {
     PageResponse<BorrowRequestListItemResponse> data =
             borrowRequestService.getAllRequests(page, pageSize, status, keyword);
     return ResponseUtil.success("", data);
+    }
+    @GetMapping("/{id}/history")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getRequestHistory(
+        @PathVariable Long id) {
+    List<ActivityLogResponse> history = activityLogService.getRequestHistory(id);
+    return ResponseUtil.success("", history);
     }
 }

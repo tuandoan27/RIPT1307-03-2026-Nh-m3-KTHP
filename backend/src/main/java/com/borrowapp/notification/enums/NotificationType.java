@@ -1,6 +1,7 @@
 package com.borrowapp.notification.enums;
 
 public enum NotificationType {
+    REQUEST_CREATED,
     REQUEST_APPROVED,
     REQUEST_REJECTED,
     REQUEST_RETURNED,

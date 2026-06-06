@@ -9,6 +9,11 @@ import com.borrowapp.activity.repository.ActivityLogSpecification;
 import com.borrowapp.activity.service.ActivityLogService;
 import com.borrowapp.common.constants.ActivityLogAction;
 import com.borrowapp.common.response.PageResponse;
+import com.borrowapp.common.exception.ForbiddenException;
+import com.borrowapp.common.exception.ResourceNotFoundException;
+import com.borrowapp.request.repository.BorrowRequestRepository;
+import com.borrowapp.request.entity.BorrowRequest;
+import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +26,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
@@ -32,14 +38,9 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     private final ActivityLogRepository repo;
     private final ActivityLogMapper     mapper;
     private final UserRepository        userRepo;
+    private final BorrowRequestRepository borrowRequestRepo;
 
-    /**
-     * Ghi log hành động của user.
-     *
-     * actorId   — id người thực hiện, null nếu là system/cron
-     * actorName — giữ lại cho backward compat với caller, không lưu DB
-     *             (tên lấy từ user.getFullName() lúc đọc qua mapper)
-     */
+
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(Long actorId, String actorName, ActivityLogAction action,
@@ -119,4 +120,24 @@ public class ActivityLogServiceImpl implements ActivityLogService {
                 .pageSize(filter.getPageSize())
                 .build();
     }
+    @Override
+@Transactional(readOnly = true)
+public List<ActivityLogResponse> getRequestHistory(Long requestId) {
+    String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+    User currentUser = userRepo.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+    BorrowRequest request = borrowRequestRepo.findById(requestId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mượn"));
+
+    if (!request.getUser().getId().equals(currentUser.getId())) {
+        throw new ForbiddenException("Bạn không có quyền xem lịch sử yêu cầu này");
+    }
+
+    return repo.findByTargetTypeAndTargetIdOrderByCreatedAtAsc("REQUEST", requestId)
+            .stream()
+            .map(mapper::toResponse)
+            .toList();
+}
 }
