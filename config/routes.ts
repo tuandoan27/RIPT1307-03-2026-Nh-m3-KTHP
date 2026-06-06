@@ -1,15 +1,19 @@
 ﻿export default [
-	// USER
 	{
 		path: '/user',
 		layout: false,
 		routes: [
 			{
 				path: '/user/login',
-				layout: false,
 				name: 'login',
-				component: './user/Login',
+				component: './user/Login', // có sẵn trong base
 			},
+			// Thêm register khi đã tạo file src/pages/user/Register/index.tsx
+			// {
+			// 	path: '/user/register',
+			// 	name: 'register',
+			// 	component: './user/Register',
+			// },
 			{
 				path: '/user',
 				redirect: '/user/login',
@@ -17,66 +21,72 @@
 		],
 	},
 
-	// ADMIN
+	///////////////////////////////////
+	// DEFAULT MENU
 	{
-		path: '/admin',
-		layout: false,
-		component: '@/layouts/AdminLayout',
+		path: '/dashboard',
+		name: 'Dashboard',
+		component: './TrangChu',
+		icon: 'HomeOutlined',
+	},
+	{
+		path: '/gioi-thieu',
+		name: 'About',
+		component: './TienIch/GioiThieu',
+		hideInMenu: true,
+	},
+	{
+		path: '/random-user',
+		name: 'RandomUser',
+		component: './RandomUser',
+		icon: 'ArrowsAltOutlined',
+	},
+	{
+		path: '/todo-list',
+		name: 'TodoList',
+		icon: 'OrderedListOutlined',
+		component: './TodoList',
+	},
+
+	// DANH MUC HE THONG
+	// {
+	// 	name: 'DanhMuc',
+	// 	path: '/danh-muc',
+	// 	icon: 'copy',
+	// 	routes: [
+	// 		{
+	// 			name: 'ChucVu',
+	// 			path: 'chuc-vu',
+	// 			component: './DanhMuc/ChucVu',
+	// 		},
+	// 	],
+	// },
+
+	{
+		path: '/notification',
 		routes: [
 			{
-				path: '/admin',
-				redirect: '/admin/dashboard',
-			},
-
-			// Dashboard
-			{
-				path: '/admin/dashboard',
-				component: './AdminDashboard',
-			},
-
-			// Equipment / Device
-			{
-				path: '/admin/equipment',
-				component: './AdminDevice',
-			},
-
-			// Requests (Admin)
-			{
-				path: '/admin/requests',
-				component: './AdminRequests',
+				path: './subscribe',
+				exact: true,
+				component: './ThongBao/Subscribe',
 			},
 			{
-				path: '/admin/requests/:id',
-				component: './AdminRequests/RequestDetail',
+				path: './check',
+				exact: true,
+				component: './ThongBao/Check',
 			},
-
-			// Notifications (Admin)
 			{
-				path: '/admin/notifications',
-				component: './AdminNotifications',
-			},
-
-			// Activity Logs (Admin)
-			{
-				path: '/admin/activity-logs',
-				component: './AdminActivityLogs',
-			},
-
-			// Users (Admin)
-			{
-				path: '/admin/users',
-				component: './AdminUsers',
+				path: './',
+				exact: true,
+				component: './ThongBao/NotifOneSignal',
 			},
 		],
+		layout: false,
+		hideInMenu: true,
 	},
-
-	// ROOT
 	{
 		path: '/',
-		redirect: '/admin/dashboard',
 	},
-
-	// ERROR
 	{
 		path: '/403',
 		component: './exception/403/403Page',
