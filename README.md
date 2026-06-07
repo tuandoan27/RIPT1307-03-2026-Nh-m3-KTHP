@@ -1,36 +1,41 @@
-# WEB BASE V3
+# Hướng dẫn cài đặt và chạy dự án
 
-## Web base v3 based on:
+## Yêu cầu
+- Java 17+
+- PostgreSQL 16+
+- Node.js 18+
 
-- React 17, umijs, antd v4
-- TypeScript
-- SSO with Keycloak
-- Back-end: NestJS, PostgreSQL
+---
 
-This project is initialized with [Web Base](https://pro.ant.design). Follow is the quick guide for how to use.
+## 1. Database
 
-## Environment Prepare
+1. Mở pgAdmin, tạo database tên `borrowapp`
+2. Chuột phải vào `borrowapp` → **Restore** → chọn file `database/dump.sql` → **Restore**
 
-Install `node_modules`:
+---
 
-```bash
-yarn
+## 2. Backend
+
+Mở file `backend/src/main/resources/application.properties`, sửa password PostgreSQL:
+
+```properties
+spring.datasource.password=your_password
 ```
 
-## Provided Scripts
-
-RIPT S-Link provides some useful script to help you quick start and build with web project, code style check and test.
-
-Scripts provided in `package.json`. It's safe to modify or add additional script:
-
-### Start project
+Chạy:
 
 ```bash
-yarn start
+cd backend
+.\mvnw.cmd spring-boot:run -DskipTests
 ```
 
-### Build project
+Backend chạy tại: `http://localhost:8080`
 
-```bash
-yarn build
-```
+---
+
+## Tài khoản demo
+
+| Vai trò | Email | Mật khẩu |
+|---------|-------|----------|
+| Admin | admin@borrowapp.com | 123456 |
+| Sinh viên | an@gmail.com | 123456 |
