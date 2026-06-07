@@ -51,7 +51,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-            "http://localhost:8000",                  // frontend dev
+           "http://localhost:8000", 
+            "http://192.168.168.1:8000",                     // frontend 
             "https://sinhvien.hvpnvn.edu.vn"         // production
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

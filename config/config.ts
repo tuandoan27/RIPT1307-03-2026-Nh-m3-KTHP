@@ -40,9 +40,16 @@ export default defineConfig({
 	// esbuild is father build tools
 	// https://umijs.org/plugins/plugin-esbuild
 	esbuild: {},
+	
 	title: false,
 	ignoreMomentLocale: true,
 	// proxy: proxy[REACT_APP_ENV || 'dev'],
+	proxy: {
+  '/api': {
+    target: 'http://localhost:8080',
+    changeOrigin: true,
+  },
+},
 	manifest: {
 		basePath: '/',
 	},
