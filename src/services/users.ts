@@ -1,11 +1,4 @@
 // src/services/users.ts
-// Gọi real API:
-//   GET /api/admin/users
-//   GET /api/admin/users/{id}
-//   PUT /api/admin/users/{id}/lock
-//   PUT /api/admin/users/{id}/unlock
-//   PUT /api/admin/users/{id}/adjust-penalty   body: { delta, reason }
-//   PUT /api/admin/users/{id}/reset-penalty
 import adminRequest from './adminRequest';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -33,11 +26,11 @@ export interface UserItem {
   studentCode: string;
   email: string;
   role: string;
-  penaltyPoints: number;          // ← penaltyPoint
-  status: 'ACTIVE' | 'LOCKED';   // ← isLocked
+  penaltyPoints: number;
+  status: 'ACTIVE' | 'LOCKED';
   createdAt: string;
-  borrowHistory: BorrowEntry[];   // ← requests[] từ UserDetailResponse
-  penaltyHistory: PenaltyEntry[]; // BE không trả về → []
+  borrowHistory: BorrowEntry[];
+  penaltyHistory: PenaltyEntry[];
 }
 
 // ─── Internal BE response types ───────────────────────────────────────────
@@ -48,7 +41,7 @@ interface BackendUserListItem {
   email: string;
   role: string;
   penaltyPoint: number;
-  isLocked: boolean;
+  locked: boolean;   // ✅ FIX: backend trả về "locked", không phải "isLocked"
   createdAt: string;
 }
 
@@ -79,7 +72,7 @@ function mapListItem(b: BackendUserListItem): UserItem {
     email: b.email,
     role: b.role,
     penaltyPoints: b.penaltyPoint,
-    status: b.isLocked ? 'LOCKED' : 'ACTIVE',
+    status: b.locked ? 'LOCKED' : 'ACTIVE',  // ✅ FIX: b.isLocked → b.locked
     createdAt: b.createdAt,
     borrowHistory: [],
     penaltyHistory: [],
@@ -114,7 +107,6 @@ export async function getUserById(id: string): Promise<UserItem> {
   return mapDetail(res.data.data);
 }
 
-/** Trả về UserItem sau khi lock (fetch lại từ BE) */
 export async function lockUser(id: string, _reason?: string, _by?: string): Promise<UserItem> {
   await adminRequest.put(`/admin/users/${id}/lock`);
   return getUserById(id);
@@ -125,11 +117,6 @@ export async function unlockUser(id: string, _reason?: string, _by?: string): Pr
   return getUserById(id);
 }
 
-/**
- * Điều chỉnh điểm phạt.
- * pointsDelta > 0: cộng điểm phạt
- * pointsDelta < 0: trừ điểm phạt
- */
 export async function adjustPenalty(
   id: string,
   pointsDelta: number,
@@ -152,7 +139,6 @@ export async function getUserHistory(id: string) {
   return { borrowHistory: u.borrowHistory, penaltyHistory: u.penaltyHistory };
 }
 
-/** Không dùng cho real API — giữ để tránh lỗi import nếu có test */
 export async function resetUsersForTests() {
   console.warn('[users] resetUsersForTests: no-op on real API');
 }
