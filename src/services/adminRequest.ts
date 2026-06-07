@@ -1,8 +1,6 @@
 // ============================================================
 // services/adminRequest.ts
 // Axios instance dành riêng cho Admin
-// Extend từ baseRequest (của Vy), override baseURL + interceptors
-// nếu cần thiết cho luồng Admin.
 // ============================================================
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
@@ -33,7 +31,7 @@ const adminRequest: AxiosInstance = axios.create({
 // ─── Request interceptor: đính kèm JWT token ─────────────────
 adminRequest.interceptors.request.use(
   (config: AxiosRequestConfig) => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token'); // ✅ sửa 'access_token' → 'token'
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -45,7 +43,6 @@ adminRequest.interceptors.request.use(
 // ─── Response interceptor: xử lý lỗi tập trung ──────────────
 adminRequest.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
-    // API trả về success: false → ném lỗi để catch ở component
     if (response.data && response.data.success === false) {
       return Promise.reject(new Error(response.data.message ?? 'Có lỗi xảy ra'));
     }
@@ -56,9 +53,10 @@ adminRequest.interceptors.response.use(
       const status: number = error.response.status;
 
       if (status === 401) {
-        // Token hết hạn → xóa token, redirect về login
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        localStorage.removeItem('token'); // ✅ sửa key cho đồng nhất
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userInfo');
+        window.location.href = '/user/login'; // ✅ sửa đúng path login
         return Promise.reject(new Error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại'));
       }
 

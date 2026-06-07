@@ -42,9 +42,10 @@ class NotificationAdminControllerTest {
     @DisplayName("GET /failed-emails – ADMIN → 200 với danh sách log")
     @WithMockUser(roles = "ADMIN")
     void getFailedEmails_adminRole_returns200() throws Exception {
+        // FIX: NotificationLogResponse không có toEmail – field đã đổi tên thành recipient.
         NotificationLogResponse log1 = NotificationLogResponse.builder()
                 .id(1L)
-                .toEmail("user@example.com")
+                .recipient("user@example.com")   // FIX: toEmail → recipient
                 .subject("Test Subject")
                 .status(NotificationLogStatus.FAILED)
                 .retryCount(2)

@@ -1,53 +1,40 @@
-// ============================================================
-// pages/admin/dashboard/index.tsx
-// Trang Dashboard Admin (/admin/dashboard)
-// Gồm: 4 stat cards + biểu đồ cột + biểu đồ tròn
-//       + bảng top 5 thiết bị + danh sách 5 PENDING mới nhất
-// Toàn bộ dùng mock data, skeleton loading cho từng block
-// ============================================================
-
+// src/pages/admin/dashboard/index.tsx
+// Đã cập nhật: bỏ @/mocks + simulateFetch, dùng fetchDashboard() từ @/services/dashboard
 import React, { useEffect, useState } from 'react';
 import {
   Row, Col, Card, Statistic, Table, Tag, Typography,
-  Skeleton, Space, Button, Tooltip,
+  Skeleton, Space, Button, Tooltip, message,
 } from 'antd';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import {
-  ArrowRightOutlined,
-  ReloadOutlined,
-  FileSearchOutlined,
-} from '@ant-design/icons';
+import { ArrowRightOutlined, ReloadOutlined, FileSearchOutlined } from '@ant-design/icons';
 import { history } from 'umi';
 import type { ColumnsType } from 'antd/es/table';
 
-import { getDashboardData, type StatCard, type MonthlyBorrowData, type StatusPieData, type TopDevice, type PendingRequest } from '@/mocks';
+import {
+  fetchDashboard,
+  type StatCard,
+  type MonthlyBorrowData,
+  type StatusPieData,
+  type TopDevice,
+  type PendingRequest,
+} from '@/services/dashboard';
 
 const { Title, Text } = Typography;
 
-// ─── Giả lập delay API ───────────────────────────────────────
-const simulateFetch = (ms = 1200): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-// ─── Columns: Top 5 thiết bị ─────────────────────────────────
+// ─── Columns: Top 5 thiết bị ─────────────────────────────────────────────
 const TOP_DEVICE_COLUMNS: ColumnsType<TopDevice> = [
   {
     title: '#',
     dataIndex: 'rank',
     width: 48,
     render: (rank: number) => (
-      <Text strong style={{ color: rank <= 3 ? '#fa8c16' : undefined }}>
-        {rank}
-      </Text>
+      <Text strong style={{ color: rank <= 3 ? '#fa8c16' : undefined }}>{rank}</Text>
     ),
   },
-  {
-    title: 'Tên thiết bị',
-    dataIndex: 'name',
-    ellipsis: true,
-  },
+  { title: 'Tên thiết bị', dataIndex: 'name', ellipsis: true },
   {
     title: 'Lượt mượn',
     dataIndex: 'borrowCount',
@@ -55,18 +42,9 @@ const TOP_DEVICE_COLUMNS: ColumnsType<TopDevice> = [
     align: 'center',
     render: (v: number) => <Tag color="blue">{v}</Tag>,
   },
-  {
-    title: 'Còn lại',
-    dataIndex: 'available',
-    width: 80,
-    align: 'center',
-    render: (v: number) => (
-      <Tag color={v === 0 ? 'red' : 'green'}>{v}</Tag>
-    ),
-  },
 ];
 
-// ─── Columns: 5 PENDING mới nhất ─────────────────────────────
+// ─── Columns: 5 PENDING mới nhất ─────────────────────────────────────────
 const PENDING_COLUMNS: ColumnsType<PendingRequest> = [
   {
     title: 'Mã YC',
@@ -74,25 +52,14 @@ const PENDING_COLUMNS: ColumnsType<PendingRequest> = [
     width: 100,
     render: (id: string) => <Text code>{id}</Text>,
   },
-  {
-    title: 'Sinh viên',
-    dataIndex: 'studentName',
-  },
-  {
-    title: 'Thiết bị',
-    dataIndex: 'deviceName',
-    ellipsis: true,
-  },
-  {
-    title: 'Ngày mượn',
-    dataIndex: 'borrowDate',
-    width: 110,
-  },
+  { title: 'Sinh viên',  dataIndex: 'studentName' },
+  { title: 'Thiết bị',  dataIndex: 'deviceName', ellipsis: true },
+  { title: 'Ngày mượn', dataIndex: 'borrowDate',  width: 110 },
   {
     title: 'Ngày gửi',
     dataIndex: 'submittedAt',
-    width: 140,
-    render: (v: string) => <Text type="secondary">{v}</Text>,
+    width: 160,
+    render: (v: string) => <Text type="secondary">{new Date(v).toLocaleString()}</Text>,
   },
   {
     title: '',
@@ -111,96 +78,79 @@ const PENDING_COLUMNS: ColumnsType<PendingRequest> = [
   },
 ];
 
-// ─── Component chính ─────────────────────────────────────────
+// ─── Component chính ──────────────────────────────────────────────────────
 const AdminDashboard: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
-  const [chartsLoading, setChartsLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
 
-  const [statCards, setStatCards] = useState<StatCard[]>([]);
-  const [monthlyData, setMonthlyData] = useState<MonthlyBorrowData[]>([]);
-  const [statusPie, setStatusPie] = useState<StatusPieData[]>([]);
-  const [topDevices, setTopDevices] = useState<TopDevice[]>([]);
+  const [statCards,       setStatCards]       = useState<StatCard[]>([]);
+  const [monthlyData,     setMonthlyData]     = useState<MonthlyBorrowData[]>([]);
+  const [statusPie,       setStatusPie]       = useState<StatusPieData[]>([]);
+  const [topDevices,      setTopDevices]      = useState<TopDevice[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
 
-  // Giả lập 2 lần fetch độc lập (cards + charts)
-  useEffect(() => {
-    simulateFetch(900).then(() => {
-      const d = getDashboardData();
+  const load = async () => {
+    setLoading(true);
+    try {
+      const d = await fetchDashboard();
       setStatCards(d.statCards);
-      setTopDevices(d.topDevices);
-      setPendingRequests(d.pendingRequests);
-      setLoading(false);
-    });
-    simulateFetch(1400).then(() => {
-      const d = getDashboardData();
       setMonthlyData(d.monthlyData);
       setStatusPie(d.statusPie);
-      setChartsLoading(false);
-    });
-  }, []);
-
-  const handleRefresh = () => {
-    setLoading(true);
-    setChartsLoading(true);
-    simulateFetch(900).then(() => setLoading(false));
-    simulateFetch(1400).then(() => setChartsLoading(false));
+      setTopDevices(d.topDevices);
+      setPendingRequests(d.pendingRequests);
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể tải dữ liệu dashboard');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => { load(); }, []);
 
   return (
     <Space direction="vertical" size={24} style={{ display: 'flex' }}>
-      {/* ── Tiêu đề + nút làm mới ──────────────────────────── */}
+      {/* ── Tiêu đề + nút làm mới ──────────────────────────────────────── */}
       <Row justify="space-between" align="middle">
-        <Title level={4} style={{ margin: 0 }}>
-          Dashboard
-        </Title>
-        <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
-          Làm mới
-        </Button>
+        <Title level={4} style={{ margin: 0 }}>Dashboard</Title>
+        <Button icon={<ReloadOutlined />} onClick={load}>Làm mới</Button>
       </Row>
 
-      {/* ── 4 Stat Cards ───────────────────────────────────── */}
+      {/* ── 4 Stat Cards ───────────────────────────────────────────────── */}
       <Row gutter={[16, 16]}>
-        {statCards.map((card) => (
-          <Col xs={24} sm={12} lg={6} key={card.title}>
-            <Card bordered={false} style={{ borderRadius: 8 }}>
-              {loading ? (
-                <Skeleton active paragraph={{ rows: 1 }} />
-              ) : (
-                <Statistic
-                  title={card.title}
-                  value={card.value}
-                  suffix={card.suffix}
-                  valueStyle={{ color: card.color, fontWeight: 700 }}
-                />
-              )}
-            </Card>
-          </Col>
-        ))}
+        {loading
+          ? [0, 1, 2, 3].map((i) => (
+              <Col xs={24} sm={12} lg={6} key={i}>
+                <Card bordered={false} style={{ borderRadius: 8 }}>
+                  <Skeleton active paragraph={{ rows: 1 }} />
+                </Card>
+              </Col>
+            ))
+          : statCards.map((card) => (
+              <Col xs={24} sm={12} lg={6} key={card.title}>
+                <Card bordered={false} style={{ borderRadius: 8 }}>
+                  <Statistic
+                    title={card.title}
+                    value={card.value}
+                    suffix={card.suffix}
+                    valueStyle={{ color: card.color, fontWeight: 700 }}
+                  />
+                </Card>
+              </Col>
+            ))}
       </Row>
 
-      {/* ── Biểu đồ cột + Biểu đồ tròn ────────────────────── */}
+      {/* ── Biểu đồ cột + Biểu đồ tròn ────────────────────────────────── */}
       <Row gutter={[16, 16]}>
-        {/* Biểu đồ cột: lượt mượn theo tháng */}
         <Col xs={24} lg={15}>
-          <Card
-            title="Lượt mượn theo tháng (2025)"
-            bordered={false}
-            style={{ borderRadius: 8 }}
-          >
-            {chartsLoading ? (
+          <Card title="Lượt mượn theo tháng" bordered={false} style={{ borderRadius: 8 }}>
+            {loading ? (
               <Skeleton active paragraph={{ rows: 6 }} />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={monthlyData}
-                  margin={{ top: 8, right: 16, left: -8, bottom: 0 }}
-                >
+                <BarChart data={monthlyData} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <ReTooltip
-                    formatter={(value: number) => [value, 'Lượt mượn']}
-                  />
+                  <ReTooltip formatter={(v: number) => [v, 'Lượt mượn']} />
                   <Bar dataKey="count" fill="#1890ff" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -208,14 +158,9 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </Col>
 
-        {/* Biểu đồ tròn: tỉ lệ trạng thái */}
         <Col xs={24} lg={9}>
-          <Card
-            title="Tỉ lệ trạng thái yêu cầu"
-            bordered={false}
-            style={{ borderRadius: 8 }}
-          >
-            {chartsLoading ? (
+          <Card title="Tỉ lệ trạng thái yêu cầu" bordered={false} style={{ borderRadius: 8 }}>
+            {loading ? (
               <Skeleton active paragraph={{ rows: 6 }} />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -238,9 +183,7 @@ const AdminDashboard: React.FC = () => {
                   </Pie>
                   <Legend
                     iconType="circle"
-                    formatter={(value) => (
-                      <Text style={{ fontSize: 12 }}>{value}</Text>
-                    )}
+                    formatter={(v) => <Text style={{ fontSize: 12 }}>{v}</Text>}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -249,20 +192,15 @@ const AdminDashboard: React.FC = () => {
         </Col>
       </Row>
 
-      {/* ── Top 5 thiết bị + 5 PENDING mới nhất ───────────── */}
+      {/* ── Top 5 thiết bị + 5 PENDING mới nhất ───────────────────────── */}
       <Row gutter={[16, 16]}>
-        {/* Top 5 thiết bị mượn nhiều trong tháng */}
         <Col xs={24} lg={10}>
           <Card
             title="Top 5 thiết bị mượn nhiều nhất tháng này"
             bordered={false}
             style={{ borderRadius: 8 }}
             extra={
-              <Button
-                type="link"
-                size="small"
-                onClick={() => history.push('/admin/equipment')}
-              >
+              <Button type="link" size="small" onClick={() => history.push('/admin/equipment')}>
                 Xem tất cả <ArrowRightOutlined />
               </Button>
             }
@@ -270,9 +208,10 @@ const AdminDashboard: React.FC = () => {
             {loading ? (
               <Skeleton active paragraph={{ rows: 5 }} />
             ) : (
-                <Table<TopDevice>
+              <Table<TopDevice>
                 columns={TOP_DEVICE_COLUMNS}
                 dataSource={topDevices}
+                rowKey="rank"
                 pagination={false}
                 size="small"
               />
@@ -280,7 +219,6 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </Col>
 
-        {/* 5 yêu cầu PENDING mới nhất */}
         <Col xs={24} lg={14}>
           <Card
             title={
@@ -295,9 +233,7 @@ const AdminDashboard: React.FC = () => {
               <Button
                 type="link"
                 size="small"
-                onClick={() =>
-                  history.push('/admin/requests?status=PENDING')
-                }
+                onClick={() => history.push('/admin/requests?status=PENDING')}
               >
                 Xem tất cả <ArrowRightOutlined />
               </Button>
@@ -306,9 +242,10 @@ const AdminDashboard: React.FC = () => {
             {loading ? (
               <Skeleton active paragraph={{ rows: 5 }} />
             ) : (
-                <Table<PendingRequest>
+              <Table<PendingRequest>
                 columns={PENDING_COLUMNS}
                 dataSource={pendingRequests}
+                rowKey="id"
                 pagination={false}
                 size="small"
               />

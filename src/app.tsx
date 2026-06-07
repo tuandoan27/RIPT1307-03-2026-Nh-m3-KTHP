@@ -1,128 +1,121 @@
+// src/app.tsx
 import Footer from '@/components/Footer';
 import RightContent from '@/components/RightContent';
+import { logout } from '@/services/auth';
 import { notification } from 'antd';
-import 'moment/locale/vi';
-import type { RequestConfig, RunTimeLayoutConfig } from 'umi';
-import { getIntl, getLocale, history } from 'umi';
-import type { RequestOptionsInit, ResponseError } from 'umi-request';
-import ErrorBoundary from './components/ErrorBoundary';
-// import LoadingPage from './components/Loading';
-import { OIDCBounder } from './components/OIDCBounder';
-import { unCheckPermissionPaths } from './components/OIDCBounder/constant';
-import OneSignalBounder from './components/OneSignalBounder';
-import TechnicalSupportBounder from './components/TechnicalSupportBounder';
+import { history, type RequestConfig, type RunTimeLayoutConfig } from 'umi';
 import NotAccessible from './pages/exception/403';
 import NotFoundContent from './pages/exception/404';
-import type { IInitialState } from './services/base/typing';
 import './styles/global.less';
-import { currentRole } from './utils/ip';
 
-/**  loading */
 export const initialStateConfig = {
-	loading: <></>,
+  loading: <></>,
 };
 
-/**
- * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
- * // Tobe removed
- * */
-export async function getInitialState(): Promise<IInitialState> {
-	return {
-		permissionLoading: true,
-	};
+/** Lấy thông tin user từ localStorage */
+export async function getInitialState() {
+  const token = localStorage.getItem('token');
+  const userInfo = localStorage.getItem('userInfo');
+
+  // Không có token → redirect về login
+  if (!token || !userInfo) {
+    if (window.location.pathname !== '/user/login') {
+      history.replace('/user/login');
+    }
+    return { currentUser: null };
+  }
+
+  try {
+    const user = JSON.parse(userInfo);
+    return { currentUser: user };
+  } catch {
+    logout();
+    return { currentUser: null };
+  }
 }
 
-// Tobe removed
-const authHeaderInterceptor = (url: string, options: RequestOptionsInit) => ({});
-
-/**
- * @see https://beta-pro.ant.design/docs/request-cn
- */
+/** Gắn JWT token vào mọi request */
 export const request: RequestConfig = {
-	errorHandler: (error: ResponseError) => {
-		const { messages } = getIntl(getLocale());
-		const { response } = error;
+  errorHandler: (error: any) => {
+    const { response } = error;
 
-		if (response && response.status) {
-			const { status, statusText, url } = response;
-			const requestErrorMessage = messages['app.request.error'];
-			const errorMessage = `${requestErrorMessage} ${status}: ${url}`;
-			const errorDescription = messages[`app.request.${status}`] || statusText;
-			notification.error({
-				message: errorMessage,
-				description: errorDescription,
-			});
-		}
+    if (response?.status === 401) {
+      notification.error({ message: 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' });
+      logout();
+      return;
+    }
 
-		if (!response) {
-			notification.error({
-				description: 'Yêu cầu gặp lỗi',
-				message: 'Bạn hãy thử lại sau',
-			});
-		}
-		throw error;
-	},
-	requestInterceptors: [authHeaderInterceptor],
+    if (response?.status === 403) {
+      notification.error({ message: 'Bạn không có quyền thực hiện thao tác này.' });
+      return;
+    }
+
+    if (!response) {
+      notification.error({
+        message: 'Không thể kết nối đến máy chủ',
+        description: 'Vui lòng kiểm tra mạng.',
+      });
+    }
+
+    throw error;
+  },
+  requestInterceptors: [
+    (url, options) => {
+      const token = localStorage.getItem('token');
+      return {
+        url,
+        options: {
+          ...options,
+          headers: {
+            ...options.headers,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      };
+    },
+  ],
 };
 
-// ProLayout  https://procomponents.ant.design/components/layout
 export const layout: RunTimeLayoutConfig = ({ initialState }) => {
-	return {
-		unAccessible: (
-			<OIDCBounder>
-				<TechnicalSupportBounder>
-					<NotAccessible />
-				</TechnicalSupportBounder>
-			</OIDCBounder>
-		),
-		noFound: <NotFoundContent />,
-		rightContentRender: () => <RightContent />,
-		disableContentMargin: false,
+  return {
+    unAccessible: <NotAccessible />,
+    noFound: <NotFoundContent />,
+    rightContentRender: () => <RightContent />,
+    disableContentMargin: false,
+    footerRender: () => <Footer />,
 
-		footerRender: () => <Footer />,
+    onPageChange: () => {
+      const token = localStorage.getItem('token');
+      const { location } = history;
 
-		onPageChange: () => {
-			if (initialState?.currentUser) {
-				const { location } = history;
-				const isUncheckPath = unCheckPermissionPaths.some((path) => window.location.pathname.includes(path));
+      // Chưa đăng nhập → về trang login
+      if (!token && location.pathname !== '/user/login') {
+        history.replace('/user/login');
+        return;
+      }
 
-				if (location.pathname === '/') {
-					history.replace('/dashboard');
-				} else if (
-					!isUncheckPath &&
-					currentRole &&
-					initialState?.authorizedPermissions?.length &&
-					!initialState?.authorizedPermissions?.find((item) => item.rsname === currentRole)
-				)
-					history.replace('/403');
-			}
-		},
+      // Đã đăng nhập mà vào trang login → redirect theo role
+      if (token && location.pathname === '/user/login') {
+        const userRole = localStorage.getItem('userRole');
+        history.replace(userRole === 'ADMIN' ? '/admin/requests' : '/dashboard');
+      }
+    },
 
-		menuItemRender: (item: any, dom: any) => (
-			<a
-				className='not-underline'
-				key={item?.path}
-				href={item?.path}
-				onClick={(e) => {
-					e.preventDefault();
-					history.push(item?.path ?? '/');
-				}}
-				style={{ display: 'block' }}
-			>
-				{dom}
-			</a>
-		),
+    menuItemRender: (item: any, dom: any) => (
+      <a
+        className="not-underline"
+        key={item?.path}
+        href={item?.path}
+        onClick={(e) => {
+          e.preventDefault();
+          history.push(item?.path ?? '/');
+        }}
+        style={{ display: 'block' }}
+      >
+        {dom}
+      </a>
+    ),
 
-		childrenRender: (dom) => (
-			<OIDCBounder>
-				<ErrorBoundary>
-					{/* <TechnicalSupportBounder> */}
-					<OneSignalBounder>{dom}</OneSignalBounder>
-					{/* </TechnicalSupportBounder> */}
-				</ErrorBoundary>
-			</OIDCBounder>
-		),
-		menuHeaderRender: undefined,
-		...initialState?.settings,
-	};
+    ...initialState?.settings,
+  };
 };

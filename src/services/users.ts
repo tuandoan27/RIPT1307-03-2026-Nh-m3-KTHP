@@ -1,71 +1,160 @@
-import { getMockUsers, type UserItem, type PenaltyEntry, type BorrowEntry } from '@/mocks';
+// src/services/users.ts
+// Gọi real API:
+//   GET /api/admin/users
+//   GET /api/admin/users/{id}
+//   PUT /api/admin/users/{id}/lock
+//   PUT /api/admin/users/{id}/unlock
+//   PUT /api/admin/users/{id}/adjust-penalty   body: { delta, reason }
+//   PUT /api/admin/users/{id}/reset-penalty
+import adminRequest from './adminRequest';
 
-// In-memory clone of mock users
-let USERS: UserItem[] = getMockUsers().map((u) => ({
-  ...u,
-  borrowHistory: [...u.borrowHistory],
-  penaltyHistory: [...u.penaltyHistory],
-}));
+// ─── Types ────────────────────────────────────────────────────────────────
+export interface BorrowEntry {
+  id: string;
+  equipmentName: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  createdAt: string;
+}
 
-const delay = (ms = 200) => new Promise((res) => setTimeout(res, ms));
+export interface PenaltyEntry {
+  id: string;
+  type: string;
+  reason: string;
+  pointsChange?: number;
+  by: string;
+  timestamp: string;
+}
 
-const genId = (prefix = 'id') => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+export interface UserItem {
+  id: string;
+  fullName: string;
+  studentCode: string;
+  email: string;
+  role: string;
+  penaltyPoints: number;          // ← penaltyPoint
+  status: 'ACTIVE' | 'LOCKED';   // ← isLocked
+  createdAt: string;
+  borrowHistory: BorrowEntry[];   // ← requests[] từ UserDetailResponse
+  penaltyHistory: PenaltyEntry[]; // BE không trả về → []
+}
 
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
+// ─── Internal BE response types ───────────────────────────────────────────
+interface BackendUserListItem {
+  id: number;
+  fullName: string;
+  studentCode: string;
+  email: string;
+  role: string;
+  penaltyPoint: number;
+  isLocked: boolean;
+  createdAt: string;
+}
 
+interface BackendUserDetail extends BackendUserListItem {
+  requests: Array<{
+    id: number;
+    equipmentName: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    createdAt: string;
+  }>;
+}
+
+interface PageResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// ─── Mapping BE → FE ──────────────────────────────────────────────────────
+function mapListItem(b: BackendUserListItem): UserItem {
+  return {
+    id: String(b.id),
+    fullName: b.fullName,
+    studentCode: b.studentCode,
+    email: b.email,
+    role: b.role,
+    penaltyPoints: b.penaltyPoint,
+    status: b.isLocked ? 'LOCKED' : 'ACTIVE',
+    createdAt: b.createdAt,
+    borrowHistory: [],
+    penaltyHistory: [],
+  };
+}
+
+function mapDetail(b: BackendUserDetail): UserItem {
+  return {
+    ...mapListItem(b),
+    borrowHistory: (b.requests ?? []).map((r) => ({
+      id: String(r.id),
+      equipmentName: r.equipmentName,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      status: r.status,
+      createdAt: r.createdAt,
+    })),
+  };
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────
 export async function listUsers(): Promise<UserItem[]> {
-  await delay();
-  return clone(USERS);
+  const res = await adminRequest.get<{ data: PageResponse<BackendUserListItem> }>('/admin/users', {
+    params: { page: 1, pageSize: 200 },
+  });
+  return (res.data.data?.items ?? []).map(mapListItem);
 }
 
 export async function getUserById(id: string): Promise<UserItem> {
-  await delay();
-  const u = USERS.find((x) => x.id === id);
-  if (!u) throw new Error('User not found');
-  return clone(u);
+  const res = await adminRequest.get<{ data: BackendUserDetail }>(`/admin/users/${id}`);
+  if (!res.data.data) throw new Error('User not found');
+  return mapDetail(res.data.data);
 }
 
-export async function lockUser(id: string, reason: string, by = 'Admin'): Promise<UserItem> {
-  await delay();
-  const u = USERS.find((x) => x.id === id);
-  if (!u) throw new Error('User not found');
-  if (u.status === 'LOCKED') throw new Error('User already locked');
-  u.status = 'LOCKED';
-  const entry: PenaltyEntry = { id: genId('ph'), type: 'LOCK_USER', reason, by, timestamp: new Date().toISOString() };
-  u.penaltyHistory = [entry, ...u.penaltyHistory];
-  return clone(u);
+/** Trả về UserItem sau khi lock (fetch lại từ BE) */
+export async function lockUser(id: string, _reason?: string, _by?: string): Promise<UserItem> {
+  await adminRequest.put(`/admin/users/${id}/lock`);
+  return getUserById(id);
 }
 
-export async function unlockUser(id: string, reason: string, by = 'Admin'): Promise<UserItem> {
-  await delay();
-  const u = USERS.find((x) => x.id === id);
-  if (!u) throw new Error('User not found');
-  if (u.status === 'ACTIVE') throw new Error('User is not locked');
-  u.status = 'ACTIVE';
-  const entry: PenaltyEntry = { id: genId('ph'), type: 'UNLOCK_USER', reason, by, timestamp: new Date().toISOString() };
-  u.penaltyHistory = [entry, ...u.penaltyHistory];
-  return clone(u);
+export async function unlockUser(id: string, _reason?: string, _by?: string): Promise<UserItem> {
+  await adminRequest.put(`/admin/users/${id}/unlock`);
+  return getUserById(id);
 }
 
-export async function adjustPenalty(id: string, pointsDelta: number, reason: string, by = 'Admin'): Promise<UserItem> {
-  await delay();
-  const u = USERS.find((x) => x.id === id);
-  if (!u) throw new Error('User not found');
-  u.penaltyPoints = Math.max(0, (u.penaltyPoints || 0) + pointsDelta);
-  const entry: PenaltyEntry = { id: genId('ph'), type: 'ADJUST_PENALTY', pointsChange: pointsDelta, reason, by, timestamp: new Date().toISOString() };
-  u.penaltyHistory = [entry, ...u.penaltyHistory];
-  return clone(u);
+/**
+ * Điều chỉnh điểm phạt.
+ * pointsDelta > 0: cộng điểm phạt
+ * pointsDelta < 0: trừ điểm phạt
+ */
+export async function adjustPenalty(
+  id: string,
+  pointsDelta: number,
+  reason: string,
+  _by?: string,
+): Promise<UserItem> {
+  const res = await adminRequest.put<{ data: BackendUserDetail }>(
+    `/admin/users/${id}/adjust-penalty`,
+    { delta: pointsDelta, reason },
+  );
+  return mapDetail(res.data.data);
 }
 
-export async function getUserHistory(id: string): Promise<{ borrowHistory: BorrowEntry[]; penaltyHistory: PenaltyEntry[] }> {
-  await delay();
-  const u = USERS.find((x) => x.id === id);
-  if (!u) throw new Error('User not found');
-  return clone({ borrowHistory: u.borrowHistory, penaltyHistory: u.penaltyHistory });
+export async function resetPenalty(id: string): Promise<void> {
+  await adminRequest.put(`/admin/users/${id}/reset-penalty`);
 }
 
+export async function getUserHistory(id: string) {
+  const u = await getUserById(id);
+  return { borrowHistory: u.borrowHistory, penaltyHistory: u.penaltyHistory };
+}
+
+/** Không dùng cho real API — giữ để tránh lỗi import nếu có test */
 export async function resetUsersForTests() {
-  USERS = getMockUsers().map((u) => ({ ...u, borrowHistory: [...u.borrowHistory], penaltyHistory: [...u.penaltyHistory] }));
+  console.warn('[users] resetUsersForTests: no-op on real API');
 }
 
 export default {
@@ -74,6 +163,7 @@ export default {
   lockUser,
   unlockUser,
   adjustPenalty,
+  resetPenalty,
   getUserHistory,
   resetUsersForTests,
 };

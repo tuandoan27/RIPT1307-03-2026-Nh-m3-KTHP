@@ -1,5 +1,27 @@
 package com.borrowapp.activity.service;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import com.borrowapp.activity.dto.ActivityLogFilterRequest;
 import com.borrowapp.activity.dto.ActivityLogResponse;
 import com.borrowapp.activity.entity.ActivityLog;
@@ -8,24 +30,6 @@ import com.borrowapp.activity.repository.ActivityLogRepository;
 import com.borrowapp.activity.service.impl.ActivityLogServiceImpl;
 import com.borrowapp.common.constants.ActivityLogAction;
 import com.borrowapp.testutil.TestFixtures;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ActivityLogService")
@@ -61,8 +65,12 @@ class ActivityLogServiceImplTest {
             then(repo).should().save(captor.capture());
 
             ActivityLog saved = captor.getValue();
-            assertThat(saved.getUserId()).isEqualTo(1L);
-            assertThat(saved.getUserName()).isEqualTo("admin");
+
+            // FIX: ActivityLog.user là @ManyToOne(User) – không có getUserId()/getUserName().
+            //      Truy cập qua getUser().getId() và getUser().getFullName().
+            assertThat(saved.getUser()).isNotNull();
+            assertThat(saved.getUser().getId()).isEqualTo(1L);
+            assertThat(saved.getUser().getFullName()).isEqualTo("admin");
             assertThat(saved.getAction()).isEqualTo(ActivityLogAction.APPROVE_REQUEST);
             assertThat(saved.getTargetType()).isEqualTo("REQUEST");
             assertThat(saved.getTargetId()).isEqualTo(100L);
@@ -71,7 +79,7 @@ class ActivityLogServiceImplTest {
 
         @Test
         @DisplayName("Actor là null (system action) – vẫn lưu thành công")
-        void log_nullActor_savesWithNullUserId() {
+        void log_nullActor_savesWithNullUser() {
             given(repo.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             service.log(null, "SYSTEM",
@@ -82,8 +90,8 @@ class ActivityLogServiceImplTest {
                     ArgumentCaptor.forClass(ActivityLog.class);
             then(repo).should().save(captor.capture());
 
-            assertThat(captor.getValue().getUserId()).isNull();
-            assertThat(captor.getValue().getUserName()).isEqualTo("SYSTEM");
+            // FIX: system action → user = null (không có userId field)
+            assertThat(captor.getValue().getUser()).isNull();
         }
 
         @Test
@@ -119,8 +127,8 @@ class ActivityLogServiceImplTest {
     class LogSystemTests {
 
         @Test
-        @DisplayName("logSystem() gọi nội bộ log() với userId=null, userName=SYSTEM")
-        void logSystem_delegatesWithNullUserId() {
+        @DisplayName("logSystem() gọi nội bộ log() với user=null")
+        void logSystem_delegatesWithNullUser() {
             given(repo.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             service.logSystem(ActivityLogAction.MARK_OVERDUE,
@@ -130,8 +138,8 @@ class ActivityLogServiceImplTest {
                     ArgumentCaptor.forClass(ActivityLog.class);
             then(repo).should().save(captor.capture());
 
-            assertThat(captor.getValue().getUserId()).isNull();
-            assertThat(captor.getValue().getUserName()).isEqualTo("SYSTEM");
+            // FIX: system log → user = null
+            assertThat(captor.getValue().getUser()).isNull();
             assertThat(captor.getValue().getAction())
                     .isEqualTo(ActivityLogAction.MARK_OVERDUE);
         }
