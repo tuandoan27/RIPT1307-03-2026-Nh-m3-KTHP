@@ -4,21 +4,28 @@ import AvatarDropdown from './AvatarDropdown';
 import NoticeIconView from './NoticeIconView';
 import styles from './index.less';
 
+
 export type SiderTheme = 'light' | 'dark';
 
+
 const GlobalHeaderRight: React.FC = () => {
-	const { initialState } = useModel('@@initialState');
+    const { initialState } = useModel('@@initialState');
 
-	if (!initialState || !initialState.currentUser) {
-		return null;
-	}
 
-	return (
-		<div className={styles.right}>
-			<NoticeIconView />
-			<AvatarDropdown menu />
-		</div>
-	);
+    if (!initialState || !initialState.currentUser) {
+        return null;
+    }
+
+
+    return (
+        <div className={styles.right}>
+            <NoticeIconView />
+            <AvatarDropdown menu />
+        </div>
+    );
 };
 
+
 export default GlobalHeaderRight;
+
+
