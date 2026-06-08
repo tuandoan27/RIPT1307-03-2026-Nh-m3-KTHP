@@ -1,21 +1,36 @@
 package com.borrowapp.equipment.controller;
 
-import com.borrowapp.common.response.ApiResponse;
-import com.borrowapp.common.response.ResponseUtil;
-import com.borrowapp.equipment.dto.*;
-import com.borrowapp.equipment.service.EquipmentService;
-import com.borrowapp.user.entity.User;
-import com.borrowapp.user.repository.UserRepository;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.util.List;
+import com.borrowapp.common.response.ApiResponse;
+import com.borrowapp.common.response.ResponseUtil;
+import com.borrowapp.equipment.dto.BookingSlotResponse;
+import com.borrowapp.equipment.dto.EquipmentDetailResponse;
+import com.borrowapp.equipment.dto.EquipmentListResponse;
+import com.borrowapp.equipment.dto.EquipmentRequest;
+import com.borrowapp.equipment.dto.OverlapCheckResponse;
+import com.borrowapp.equipment.dto.UpdateStockRequest;
+import com.borrowapp.equipment.service.EquipmentService;
+import com.borrowapp.user.entity.User;
+import com.borrowapp.user.repository.UserRepository;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/equipment")
@@ -52,7 +67,7 @@ public class EquipmentController {
                 equipmentService.checkOverlap(id, start, end));
     }
 
-    @GetMapping("/{id}/bookings")
+    @GetMapping("/{id}/booking-slots")
     public ResponseEntity<ApiResponse<List<BookingSlotResponse>>> getBookingSlots(
             @PathVariable Long id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
