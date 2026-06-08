@@ -1,5 +1,6 @@
 package com.borrowapp.notification.controller;
 
+import com.borrowapp.auth.util.JwtUtil;
 import com.borrowapp.notification.dto.NotificationLogResponse;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.service.NotificationService;
@@ -33,8 +34,9 @@ class NotificationAdminControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean  NotificationService service;
+    @MockBean  JwtUtil jwtUtil;
 
-    private static final String BASE = "/api/v1/admin/notifications";
+    private static final String BASE = "/api/admin/notifications";
 
     // ─── GET /failed-emails ───────────────────────────────────────────────────
 

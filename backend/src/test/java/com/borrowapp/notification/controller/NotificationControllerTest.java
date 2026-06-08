@@ -1,5 +1,6 @@
 package com.borrowapp.notification.controller;
 
+import com.borrowapp.auth.util.JwtUtil;
 import com.borrowapp.notification.dto.NotificationBellResponse;
 import com.borrowapp.notification.dto.NotificationResponse;
 import com.borrowapp.notification.enums.NotificationStatus;
@@ -16,6 +17,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.borrowapp.user.entity.User;
+import com.borrowapp.user.repository.UserRepository;
+import java.util.Optional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -41,8 +46,10 @@ class NotificationControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean  NotificationService service;
+    @MockBean  JwtUtil jwtUtil;
+    @MockBean  UserRepository userRepository;
 
-    private static final String BASE = "/api/v1/notifications";
+    private static final String BASE = "/api/notifications";
 
     // ─── Principal nội bộ chỉ dùng cho test ──────────────────────────────────
     /**
@@ -81,11 +88,14 @@ class NotificationControllerTest {
         return new TestPrincipal(42L, "user", List.of("USER"));
     }
 
-    // ─── GET /bell ────────────────────────────────────────────────────────────
+    // ─── GET /api/notifications ───────────────────────────────────────────────
 
     @Test
-    @DisplayName("GET /bell – đã xác thực → 200 với unreadCount và items")
+    @DisplayName("GET /api/notifications – đã xác thực → 200 với unreadCount và items")
     void getBell_authenticated_returns200WithData() throws Exception {
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
+
         NotificationResponse item = NotificationResponse.builder()
                 .id(1L)
                 .type(NotificationType.REQUEST_APPROVED)
@@ -101,7 +111,7 @@ class NotificationControllerTest {
 
         given(service.getBell(eq(42L), anyInt(), anyInt())).willReturn(bell);
 
-        mockMvc.perform(get(BASE + "/bell")
+        mockMvc.perform(get(BASE)
                         .with(user(userPrincipal()))
                         .param("page", "0")
                         .param("pageSize", "10")
@@ -116,22 +126,25 @@ class NotificationControllerTest {
     }
 
     @Test
-    @DisplayName("GET /bell – chưa xác thực → 401")
+    @DisplayName("GET /api/notifications – chưa xác thực → 401")
     void getBell_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(get(BASE + "/bell"))
+        mockMvc.perform(get(BASE))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("GET /bell – không có notification → unreadCount=0, items=[]")
+    @DisplayName("GET /api/notifications – không có notification → unreadCount=0, items=[]")
     void getBell_empty_returnsZeroUnreadEmptyItems() throws Exception {
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
+
         NotificationBellResponse emptyBell = NotificationBellResponse.builder()
                 .unreadCount(0).items(List.of()).total(0).page(0).pageSize(10)
                 .build();
 
         given(service.getBell(any(), anyInt(), anyInt())).willReturn(emptyBell);
 
-        mockMvc.perform(get(BASE + "/bell")
+        mockMvc.perform(get(BASE)
                         .with(user(userPrincipal()))
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -139,72 +152,80 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.data.items").isEmpty());
     }
 
-    // ─── PATCH /{id}/read ─────────────────────────────────────────────────────
+    // ─── PUT /{id}/read ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("PATCH /{id}/read – thành công → 200 'Marked as read'")
+    @DisplayName("PUT /{id}/read – thành công → 200 'Đã đánh dấu thông báo là đã đọc'")
     void markAsRead_success_returns200() throws Exception {
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
         willDoNothing().given(service).markAsRead(eq(42L), eq(1L));
 
-        mockMvc.perform(patch(BASE + "/1/read")
+        mockMvc.perform(put(BASE + "/1/read")
                         .with(user(userPrincipal()))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Marked as read"));
+                .andExpect(jsonPath("$.message").value("Đã đánh dấu thông báo là đã đọc"));
     }
 
     @Test
-    @DisplayName("PATCH /{id}/read – không có notification → 404")
+    @DisplayName("PUT /{id}/read – không có notification → 404")
     void markAsRead_notFound_returns404() throws Exception {
-        willThrow(new EntityNotFoundException("Notification not found: 999"))
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
+        willThrow(new com.borrowapp.common.exception.ResourceNotFoundException("Notification not found"))
                 .given(service).markAsRead(any(), eq(999L));
 
-        mockMvc.perform(patch(BASE + "/999/read")
+        mockMvc.perform(put(BASE + "/999/read")
                         .with(user(userPrincipal()))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("PATCH /{id}/read – sai owner → 403")
+    @DisplayName("PUT /{id}/read – sai owner → 403")
     void markAsRead_wrongOwner_returns403() throws Exception {
-        willThrow(new SecurityException("Access denied"))
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
+        willThrow(new com.borrowapp.common.exception.ForbiddenException("Access denied"))
                 .given(service).markAsRead(any(), eq(1L));
 
-        mockMvc.perform(patch(BASE + "/1/read")
+        mockMvc.perform(put(BASE + "/1/read")
                         .with(user(userPrincipal()))
                         .with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("PATCH /{id}/read – chưa xác thực → 401")
+    @DisplayName("PUT /{id}/read – chưa xác thực → 401")
     void markAsRead_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch(BASE + "/1/read").with(csrf()))
+        mockMvc.perform(put(BASE + "/1/read").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 
-    // ─── PATCH /read-all ─────────────────────────────────────────────────────
+    // ─── PUT /read-all ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("PATCH /read-all – thành công → 200")
+    @DisplayName("PUT /read-all – thành công → 200")
     void markAllAsRead_success_returns200() throws Exception {
+        User u = new User(); u.setId(42L);
+        given(userRepository.findByEmail(any())).willReturn(Optional.of(u));
         willDoNothing().given(service).markAllAsRead(eq(42L));
 
-        mockMvc.perform(patch(BASE + "/read-all")
+        mockMvc.perform(put(BASE + "/read-all")
                         .with(user(userPrincipal()))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message")
-                        .value("All notifications marked as read"));
+                        .value("Đã đánh dấu tất cả thông báo là đã đọc"));
     }
 
     @Test
-    @DisplayName("PATCH /read-all – chưa xác thực → 401")
+    @DisplayName("PUT /read-all – chưa xác thực → 401")
     void markAllAsRead_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(patch(BASE + "/read-all").with(csrf()))
+        mockMvc.perform(put(BASE + "/read-all").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 }

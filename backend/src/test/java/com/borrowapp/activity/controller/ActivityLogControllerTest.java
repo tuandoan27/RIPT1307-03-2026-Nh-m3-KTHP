@@ -3,6 +3,7 @@ package com.borrowapp.activity.controller;
 import com.borrowapp.activity.dto.ActivityLogFilterRequest;
 import com.borrowapp.activity.dto.ActivityLogResponse;
 import com.borrowapp.activity.service.ActivityLogService;
+import com.borrowapp.auth.util.JwtUtil;
 import com.borrowapp.common.constants.ActivityLogAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,8 +39,9 @@ class ActivityLogControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean  ActivityLogService service;
+    @MockBean  JwtUtil jwtUtil;
 
-    private final String BASE_URL = "/api/v1/activity-logs";
+    private final String BASE_URL = "/api/admin/activity-logs";
 
     // ─── GET /api/v1/activity-logs ────────────────────────────────────────────
 

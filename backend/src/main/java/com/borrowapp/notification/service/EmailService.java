@@ -19,7 +19,7 @@ public interface EmailService {
      */
     void retryAsync(Long notificationLogId);
 
-    // ─── Template helpers (từ Duc1) ──────────────────────────────────────────
+    // ─── Template helpers (dùng cho schedulers) ──────────────────────────────
 
     void sendDueSoonReminder(User user, BorrowRequest request);
 

@@ -6,6 +6,8 @@ import com.borrowapp.notification.entity.NotificationLog;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.repository.NotificationLogRepository;
 import com.borrowapp.notification.service.EmailService;
+import com.borrowapp.request.entity.BorrowRequest;
+import com.borrowapp.user.entity.User;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Slf4j
@@ -99,5 +102,52 @@ public class EmailServiceImpl implements EmailService {
     private String truncate(String s, int max) {
         if (s == null) return null;
         return s.length() <= max ? s : s.substring(0, max);
+    }
+
+    // ─── Template helpers – delegate to sendAsync via notificationService ─────
+    // Note: these are delegated to the richer EmailServiceImpl in service package
+    // when called from schedulers. This impl delegates to sendAsync for compatibility.
+
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendDueSoonReminder(User user, BorrowRequest request) {
+        String subject = "[BorrowApp] Nhắc nhở: Sắp đến hạn trả thiết bị";
+        String html = "<p>Chào <b>" + user.getFullName() + "</b>,<br/>"
+                + "Thiết bị <b>" + request.getEquipment().getName() + "</b> của bạn sẽ hết hạn vào <b>"
+                + request.getEndDate().format(DATE_FMT) + "</b>. Vui lòng trả đúng hạn.</p>";
+        sendAsync(user.getEmail(), subject, html);
+    }
+
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendOverdueWarning(User user, BorrowRequest request) {
+        String subject = "[BorrowApp] Cảnh báo: Quá hạn trả thiết bị";
+        String html = "<p>Chào <b>" + user.getFullName() + "</b>,<br/>"
+                + "Thiết bị <b>" + request.getEquipment().getName() + "</b> đã QUÁ HẠN trả (hạn: "
+                + request.getEndDate().format(DATE_FMT) + "). Tài khoản đã bị ghi điểm phạt.</p>";
+        sendAsync(user.getEmail(), subject, html);
+    }
+
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendRequestApproved(User user, BorrowRequest request) {
+        String subject = "[BorrowApp] Yêu cầu mượn đã được duyệt";
+        String html = "<p>Chào <b>" + user.getFullName() + "</b>,<br/>"
+                + "Yêu cầu mượn <b>" + request.getEquipment().getName() + "</b> đã được duyệt.<br/>"
+                + "Thời gian: " + request.getStartDate().format(DATE_FMT)
+                + " → " + request.getEndDate().format(DATE_FMT) + "</p>";
+        sendAsync(user.getEmail(), subject, html);
+    }
+
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendRequestRejected(User user, BorrowRequest request, String reason) {
+        String subject = "[BorrowApp] Yêu cầu mượn bị từ chối";
+        String html = "<p>Chào <b>" + user.getFullName() + "</b>,<br/>"
+                + "Yêu cầu mượn <b>" + request.getEquipment().getName() + "</b> đã bị từ chối.<br/>"
+                + "Lý do: " + (reason != null && !reason.isBlank() ? reason : "(không có)") + "</p>";
+        sendAsync(user.getEmail(), subject, html);
     }
 }
