@@ -1,6 +1,8 @@
 // com/borrowapp/request/service/BorrowRequestService.java
 package com.borrowapp.request.service;
 
+import com.borrowapp.activity.mapper.ActivityLogMapper;
+import com.borrowapp.activity.repository.ActivityLogRepository;
 import com.borrowapp.activity.util.LoggingHelper;
 import com.borrowapp.common.constants.ActivityLogAction;
 import com.borrowapp.common.constants.RequestStatus;
@@ -23,6 +25,7 @@ import com.borrowapp.request.entity.BorrowRequest;
 import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.user.entity.User;
 import com.borrowapp.user.repository.UserRepository;
+import com.borrowapp.activity.dto.ActivityLogResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -49,6 +52,8 @@ public class BorrowRequestService {
     private final UserRepository          userRepository;
     private final NotificationService     notificationService;
     private final LoggingHelper           loggingHelper;
+    private final ActivityLogRepository   activityLogRepository;
+    private final ActivityLogMapper       activityLogMapper;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -149,6 +154,7 @@ public class BorrowRequestService {
         User actor   = currentActor();
         User borrower = request.getUser();
 
+        // 1) Email + in-app notification
         try {
             notificationService.sendAndNotify(
                     borrower.getId(),
@@ -167,6 +173,7 @@ public class BorrowRequestService {
             log.error("[ApproveRequest] Notify failed | requestId={} err={}", requestId, ex.getMessage());
         }
 
+        // 2) Activity log
         try {
             loggingHelper.log(
                     actor != null ? actor.getId() : null,
@@ -204,6 +211,7 @@ public class BorrowRequestService {
         Equipment equipment = request.getEquipment();
         String reason  = body.getReason();
 
+        // 1) Email + in-app
         try {
             notificationService.sendAndNotify(
                     borrower.getId(),
@@ -221,6 +229,7 @@ public class BorrowRequestService {
             log.error("[RejectRequest] Notify failed | requestId={} err={}", requestId, ex.getMessage());
         }
 
+        // 2) Activity log
         try {
             loggingHelper.log(
                     actor != null ? actor.getId() : null,
@@ -347,10 +356,34 @@ public class BorrowRequestService {
                 .build();
     }
 
+    /**
+     * Lấy danh sách ActivityLog của một yêu cầu mượn cụ thể.
+     * ADMIN thấy tất cả, STUDENT chỉ thấy yêu cầu của chính mình.
+     */
+    public List<ActivityLogResponse> getRequestLogs(Long requestId) {
+        BorrowRequest request = borrowRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mượn"));
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        if (currentUser.getRole() == Role.STUDENT
+                && !request.getUser().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Bạn không có quyền xem lịch sử yêu cầu này");
+        }
+
+        return activityLogRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc("REQUEST", requestId)
+                .stream()
+                .map(activityLogMapper::toResponse)
+                .toList();
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     // Private helpers
     // ══════════════════════════════════════════════════════════════════════
 
+    /** Lấy user đang đăng nhập (actor) – có thể trả null nếu không có auth context. */
     private User currentActor() {
         try {
             var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -361,6 +394,7 @@ public class BorrowRequestService {
         }
     }
 
+    /** Build detail map cho ActivityLog (LoggingHelper sẽ tự serialize sang JSON). */
     private Map<String, Object> buildRequestDetail(BorrowRequest request,
                                                    Equipment equipment,
                                                    User borrower,

@@ -47,11 +47,10 @@ class ActivityLogControllerTest {
     @DisplayName("GET – ADMIN role – trả về 200 với danh sách log")
     @WithMockUser(roles = "ADMIN")
     void getLogs_adminRole_returns200WithLogs() throws Exception {
-        // FIX: ActivityLogResponse không có userId/userName.
-        //      Dùng performedBy (fullName của actor, hoặc "System").
         ActivityLogResponse log1 = ActivityLogResponse.builder()
                 .id(1L)
-                .performedBy("admin")
+                .userId(1L)
+                .userName("admin")
                 .action(ActivityLogAction.APPROVE_REQUEST)
                 .targetType("REQUEST")
                 .targetId(100L)

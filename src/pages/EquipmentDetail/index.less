@@ -1,0 +1,51 @@
+.container {
+	padding: 24px;
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.imageCard {
+	:global(.ant-card-body) {
+		padding: 0;
+	}
+}
+
+.title {
+	margin: 0 0 12px 0;
+	font-size: 28px;
+	font-weight: 600;
+	color: #222;
+}
+
+.description {
+	margin: 16px 0;
+	font-size: 14px;
+	line-height: 1.6;
+	color: #555;
+}
+
+.statusBadge {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+
+	:global(.ant-tag) {
+		margin: 0;
+		padding: 8px 12px;
+		font-size: 14px;
+	}
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: 12px;
+	}
+
+	.title {
+		font-size: 20px;
+	}
+
+	.description {
+		font-size: 13px;
+	}
+}

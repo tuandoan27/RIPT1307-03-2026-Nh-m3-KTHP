@@ -2,18 +2,20 @@ package com.borrowapp.notification.dto;
 
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
-@Getter
+@Data
 @Builder
 public class NotificationLogResponse {
-    private Long id;
-    private String recipient;   // mapped từ toEmail
-    private String subject;
+    private Long                  id;
+    private String                toEmail;
+    private String                recipient;   // alias for toEmail (backward compat)
+    private String                subject;
     private NotificationLogStatus status;
-    private int retryCount;
-    private String errorMessage;
-    private LocalDateTime createdAt;
+    private int                   retryCount;
+    private String                errorMessage;
+    private LocalDateTime         createdAt;
+    private LocalDateTime         updatedAt;
 }

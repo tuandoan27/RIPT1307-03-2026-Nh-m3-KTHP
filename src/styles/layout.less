@@ -1,146 +1,262 @@
+// ─── Nhà Kho Sinh Viên — Layout Styles (Light Theme) ─────────────────────────
+
+
+@sidebar-bg:          #0f1728;        // hoặc #192338 cho nhẹ hơn
+@sidebar-border:      rgba(255, 255, 255, 0.07);
+@menu-text:           rgba(255, 255, 255, 0.65);
+@menu-text-hover:     rgba(255, 255, 255, 0.95);
+@menu-hover-bg:       rgba(255, 255, 255, 0.08);
+@menu-active-text:    #ffffff;  
+@menu-item-radius:    8px;
+
+
+// ─── Logo Brand (in header) ───────────────────────────────────────────────────
+@keyframes nksvShimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+
+@keyframes nksvIconPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 180, 60, 0.35)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(255, 180, 60, 0.65)); }
+}
+
+
+// ProLayout logo wrapper in header
+.ant-pro-global-header-logo {
+  a {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+    gap: 10px !important;
+    &::after { display: none !important; }
+  }
+
+
+  // Reset h1 that ProLayout wraps title in
+  h1 {
+    display: flex !important;    
+    align-items: center !important;
+    font-size: unset !important;
+    font-weight: unset !important;
+    color: unset !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+  }
+
+
+  .nksv-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    color: #ffb83e;
+    animation: nksvIconPulse 3.5s ease-in-out infinite;
+  }
+}
+
+
+// Animated gradient title
+.nksv-header-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%, #ffe08a 30%, #ffb83e 55%, #ffffff 100%
+  );
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: nksvShimmer 4s ease-in-out infinite;
+}
+
+
+// Sidebar: menu bắt đầu từ đầu, không có logo header nữa
+.ant-pro-sider-menu {
+  padding-top: 28px !important;
+}
+
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+.ant-pro-sider,
+.ant-layout-sider {
+  background: @sidebar-bg !important;
+  border-right: 1px solid @sidebar-border !important;
+  box-shadow: none !important;
+
+
+  .ant-layout-sider-children {
+    background: @sidebar-bg !important;
+  }
+}
+
+
+.ant-pro-sider .ant-layout-sider-trigger {
+  background: #192338 !important;
+  border-top: 1px solid @sidebar-border;
+  color: rgba(0, 0, 0, 0.45) !important;
+  &:hover {
+    background: #1e2d45 !important;
+    color: rgba(0, 0, 0, 0.75) !important;
+  }
+}
+
+
+// ─── Menu ─────────────────────────────────────────────────────────────────────
+.ant-pro-sider-menu {
+  background: transparent !important;
+  padding: 28px 10px 8px !important;
+  border-right: none !important;
+
+
+  .ant-menu-item,
+  .ant-menu-submenu-title {
+    height: auto !important;
+    min-height: 40px;
+    padding: 7px 12px !important;
+    padding-left: 12px !important;
+    line-height: 1.45 !important;
+    border-radius: @menu-item-radius !important;
+    color: @menu-text !important;
+    margin: 2px 0 !important;
+    border: 1px solid transparent !important;
+    transition: background 0.18s ease, color 0.18s ease !important;
+
+
+    &::after { border: none !important; }
+
+
+    .anticon {
+  color: rgba(255, 255, 255, 0.6) !important;
+  transition: color 0.18s ease;
+}
+
+
+    &:hover {
+      background: @menu-hover-bg !important;
+      color: @menu-text-hover !important;
+      border-color: var(--primary-color) !important;
+      .anticon { color: var(--primary-color) !important; }
+    }
+  }
+
+
+  .ant-menu-item-selected,
+  li.ant-menu-item-selected {
+    background: var(--primary-color) !important;
+    color: @menu-active-text !important;
+    padding-left: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+
+
+    .anticon { color: @menu-active-text !important; border-color: #ffffff !important; }
+    .ant-pro-menu-item-title { color: @menu-active-text !important; }
+  }
+
+
+  .ant-menu-submenu {
+    & > .ant-menu-submenu-title {
+      padding-right: 24px !important;
+      padding-left: 12px !important;
+      border-radius: @menu-item-radius !important;
+      .ant-menu-submenu-arrow { right: 10px; }
+    }
+
+
+    .ant-menu-sub {
+      padding-left: 10px;
+      background: rgba(255, 255, 255, 0.04) !important;
+      border-radius: @menu-item-radius;
+      .ant-menu-item { padding-left: 12px !important; }
+    }
+  }
+
+
+  .ant-pro-menu-item { white-space: break-spaces; }
+
+
+  &.ant-menu-inline-collapsed {
+    padding: 10px 6px 8px !important;
+
+
+    .ant-menu-item {
+      padding-left: calc(50% - 8px) !important;
+      border-radius: @menu-item-radius !important;
+    }
+    .ant-menu-item-selected,
+    li.ant-menu-item-selected {
+      padding-left: calc(50% - 8px) !important;
+    }
+    .ant-menu-submenu > .ant-menu-submenu-title {
+      padding-left: calc(50% - 8px) !important;
+    }
+  }
+}
+
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+.ant-pro-global-header {
+  background: #192338 !important;       // sáng hơn sidebar 1 tông — tạo chiều sâu
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: none !important;
+
+
+  // Fix màu icon (chuông, ...) trên nền tối
+  .anticon {
+    color: rgba(255, 255, 255, 0.72) !important;
+    &:hover { color: #ffffff !important; }
+  }
+
+
+  // Fix badge thông báo
+  .ant-badge { color: rgba(255, 255, 255, 0.72) !important; }
+}
+
+
 .ant-pro-header-light {
-	.ant-pro-global-header-layout-mix {
-		background-color: var(--primary-color);
-
-		.ant-pro-global-header-logo a img {
-			height: 100%;
-			padding: 5px 0;
-
-			@media (max-width: @screen-xs) {
-				max-width: 160px;
-			}
-		}
-	}
+  .ant-pro-global-header-layout-mix {
+    background: #192338 !important;  // ← đổi từ #ffffff
+  }
 }
 
-.ant-pro-header-dark {
-	.ant-pro-global-header-layout-mix {
-		.ant-pro-global-header-logo a img {
-			height: 100%;
-			padding: 8px 0;
-		}
-	}
+
+.ant-pro-header-light .ant-pro-global-header-layout-mix {
+  background: #0f1728 !important;
+
+
+  .ant-pro-global-header-logo a img {
+    height: 100%;
+    padding: 5px 0;
+  }
 }
 
-.ant-menu-light.ant-pro-sider-menu {
-	padding: 18px 0;
-	// font-weight: 600;
 
-	.ant-menu-item,
-	.ant-menu-submenu-title {
-		height: auto;
-		min-height: 36px;
-		padding: 5px 12px;
-		padding-left: 12px !important;
-		line-height: 1.5;
-		border-radius: 2px;
-
-		&::after {
-			border: none;
-		}
-	}
-
-	.ant-pro-menu-item {
-		white-space: break-spaces;
-	}
-
-	li.ant-menu-item-selected {
-		padding-left: 12px !important;
-		color: white;
-		// background-color: var(--primary-color);
-	}
-
-	.ant-menu-submenu {
-		& > .ant-menu-submenu-title {
-			padding-right: 24px !important;
-			padding-left: 12px !important;
-			border-radius: 2px;
-
-			.ant-menu-submenu-arrow {
-				right: 10px;
-			}
-		}
-
-		.ant-menu-sub {
-			padding-left: 12px;
-			background-color: #f8f8fa;
-			border-radius: 2px;
-
-			.ant-menu-sub {
-				.ant-menu-item-only-child {
-					padding-left: 12px !important;
-				}
-			}
-		}
-	}
-
-	&.ant-menu-inline-collapsed {
-		padding: 24px 0;
-
-		.ant-menu-item {
-			padding-left: calc(50% - 16px / 2) !important;
-		}
-
-		li.ant-menu-item-selected {
-			padding-left: calc(50% - 16px / 2) !important;
-		}
-
-		.ant-menu-submenu {
-			& > .ant-menu-submenu-title {
-				padding-left: calc(50% - 16px / 2) !important;
-			}
-		}
-	}
-}
-
-.ant-menu-dark.ant-pro-sider-menu {
-	.ant-menu-item,
-	.ant-menu-submenu-title {
-		height: auto !important;
-		min-height: 36px;
-		padding-top: 5px;
-		padding-bottom: 5px;
-		line-height: 1.5 !important;
-		border-radius: 2px;
-
-		&::after {
-			border: none;
-		}
-	}
-
-	.ant-pro-menu-item {
-		white-space: break-spaces;
-	}
-}
-
-.ant-pro-sider-menu.ant-menu-inline-collapsed {
-	.ant-menu-item,
-	.ant-menu-submenu-title {
-		height: 40px !important;
-		padding-top: 0;
-		padding-bottom: 0;
-	}
-}
-
+// ─── Content Area ─────────────────────────────────────────────────────────────
 .ant-layout-content {
-	margin: 18px !important;
+  margin: 20px !important;
 
-	@media (max-width: @screen-xs) {
-		margin: 12px !important;
-	}
+
+  @media (max-width: @screen-xs) {
+    margin: 12px !important;
+  }
 }
+
 
 .ant-layout {
-	min-height: 100vh;
+  min-height: 100vh;
 }
+
 
 .ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed {
-	left: unset;
+  left: unset;
 }
 
-// Compatible with IE11
-@media screen and(-ms-high-contrast: active), (-ms-high-contrast: none) {
-	body .ant-design-pro > .ant-layout {
-		min-height: 100vh;
-	}
+
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  body .ant-design-pro > .ant-layout {
+    min-height: 100vh;
+  }
 }

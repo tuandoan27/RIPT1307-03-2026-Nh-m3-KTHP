@@ -1,187 +1,149 @@
 import Footer from '@/components/Footer';
-import LoginWithKeycloak from '@/pages/user/Login/KeycloakLogin';
-import { adminlogin, getUserInfo } from '@/services/base/api';
-import { keycloakAuthority } from '@/utils/ip';
-import rules from '@/utils/rules';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Tabs, message } from 'antd';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
+import { Alert, Button, Form, Input, Card, message } from 'antd';
 import React, { useState } from 'react';
-// import Recaptcha from 'react-recaptcha';
-import { history, useIntl, useModel } from 'umi';
+import { Link, history, useModel } from 'umi';
+import axios from '@/utils/axios';
 import styles from './index.less';
 
 const Login: React.FC = () => {
-	const [count, setCount] = useState<number>(Number(localStorage?.getItem('failed')) || 0);
 	const [submitting, setSubmitting] = useState(false);
-	const [type, setType] = useState<string>('account');
-	const { initialState, setInitialState } = useModel('@@initialState');
-	const [isVerified, setIsverified] = useState<boolean>(true);
-	const [visibleCaptcha, setVisibleCaptcha] = useState<boolean>(false);
-	// const [visibleCaptcha2, setVisibleCaptcha2] = useState<boolean>(false);
-	// const recaptchaRef = useRef(null);
-	const intl = useIntl();
+	const [errorMsg, setErrorMsg] = useState<string | null>(null);
+	const { refresh } = useModel('@@initialState');
 	const [form] = Form.useForm();
 
-	/**
-	 * Xử lý token, get info sau khi đăng nhập
-	 */
-	const handleRole = async (role: { access_token: string; refresh_token: string }) => {
-		// Tobe removed
-		localStorage.setItem('token', role?.access_token);
-		localStorage.setItem('refreshToken', role?.refresh_token);
-
-		// const decoded = jwt_decode(role?.access_token) as any;
-		const info = await getUserInfo();
-		setInitialState({
-			...initialState,
-			currentUser: info?.data?.data,
-			// authorizedPermissions: decoded?.authorization?.permissions,
-		});
-
-		const defaultloginSuccessMessage = intl.formatMessage({
-			id: 'pages.login.success',
-			defaultMessage: 'success',
-		});
-		message.success(defaultloginSuccessMessage);
-		history.push('/dashboard');
-	};
-
-	const handleSubmit = async (values: { login: string; password: string }) => {
+	const handleSubmit = async (values: any) => {
+		setErrorMsg(null);
+		setSubmitting(true);
 		try {
-			if (!isVerified) {
-				message.error('Vui lòng xác thực Captcha');
-				return;
-			}
-			setSubmitting(true);
-			const msg = await adminlogin({ ...values, username: values?.login ?? '' });
-			if (msg.status === 200 && msg?.data?.data?.accessToken) {
-				handleRole(msg?.data?.data);
-				localStorage.removeItem('failed');
-			}
-		} catch (error) {
-			if (count >= 4) {
-				setIsverified(false);
-				setVisibleCaptcha(!visibleCaptcha);
-				// setVisibleCaptcha2(true);
-			}
-			setCount(count + 1);
-			localStorage.setItem('failed', (count + 1).toString());
-			const defaultloginFailureMessage = intl.formatMessage({
-				id: 'pages.login.failure',
-				defaultMessage: 'failure',
+			// Hit the real login endpoint
+			const response = await axios.post('/auth/login', {
+				email: values.email,
+				password: values.password,
 			});
-			message.error(defaultloginFailureMessage);
-		}
-		setSubmitting(false);
-	};
 
-	// const verifyCallback = (response: any) => {
-	// 	if (response) setIsverified(true);
-	// 	else setIsverified(false);
-	// };
+			if (response.data?.success) {
+				const loginData = response.data?.data;
+				localStorage.setItem('token', loginData?.token);
+				localStorage.setItem('userRole', loginData?.user?.role || 'STUDENT');
+				message.success('Đăng nhập thành công!');
+
+				// Refresh initial state to fetch user info and permissions
+				await refresh();
+
+				// Redirect based on role
+				const role = loginData?.user?.role || 'STUDENT';
+				if (role === 'ADMIN') {
+					history.push('/admin/dashboard');
+				} else {
+					history.push('/home');
+				}
+			} else {
+				setErrorMsg(response.data?.message || 'Email hoặc mật khẩu không chính xác.');
+			}
+		} catch (error: any) {
+			setErrorMsg(
+				error?.response?.data?.message ||
+				'Không thể kết nối đến hệ thống. Vui lòng thử lại sau.'
+			);
+		} finally {
+			setSubmitting(false);
+		}
+	};
 
 	return (
 		<div className={styles.container}>
 			<div className={styles.content}>
 				<div className={styles.top}>
 					<div className={styles.header}>
-						<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-							<img alt='logo' className={styles.logo} src='/logo-full.svg' />
+						<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+							<img alt='logo' className={styles.logo} src='/logo-full.svg' style={{ maxHeight: '80px', marginBottom: '16px' }} />
+							<span className={styles.title2} style={{ fontSize: '24px', letterSpacing: '0.5px' }}>
+								CỔNG THÔNG TIN SINH VIÊN
+							</span>
 						</div>
 					</div>
 				</div>
 
 				<div className={styles.main}>
-					<Tabs activeKey={type} onChange={setType}>
-						<Tabs.TabPane
-							key='account'
-							tab={intl.formatMessage({
-								id: 'pages.login.accountLogin.tab',
-								defaultMessage: 'tab',
-							})}
-						/>
-						{/* <Tabs.TabPane
-              key="accountAdmin"
-              tab={intl.formatMessage({
-                id: 'pages.login.accountLoginAdmin.tab',
-                defaultMessage: 'tab',
-              })}
-            /> */}
-					</Tabs>
+					<Card bordered={false} bodyStyle={{ padding: 0 }}>
+						<h3 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 600, marginBottom: '24px', color: '#333' }}>
+							Đăng Nhập Hệ Thống
+						</h3>
 
-					{type === 'account' ? (
-						<LoginWithKeycloak />
-					) : type === 'accountAdmin' ? (
+						{errorMsg && (
+							<Alert
+								message={errorMsg}
+								type='error'
+								showIcon
+								style={{ marginBottom: 24 }}
+							/>
+						)}
+
 						<Form
 							form={form}
-							onFinish={async (values) => handleSubmit(values as { login: string; password: string })}
+							onFinish={handleSubmit}
 							layout='vertical'
+							requiredMark={false}
 						>
-							<Form.Item label='' name='login' rules={[...rules.required]}>
+							<Form.Item
+								name='email'
+								rules={[
+									{ required: true, message: 'Vui lòng nhập email!' },
+									{ type: 'email', message: 'Email không đúng định dạng!' }
+								]}
+							>
 								<Input
-									placeholder={intl.formatMessage({
-										id: 'pages.login.username.placeholder',
-										defaultMessage: 'Nhập tên đăng nhập',
-									})}
-									prefix={<UserOutlined className={styles.prefixIcon} />}
+									placeholder='Email (ví dụ: student@ptit.edu.vn)'
+									prefix={<MailOutlined className={styles.prefixIcon} />}
 									size='large'
+									style={{ borderRadius: '6px' }}
 								/>
 							</Form.Item>
-							<Form.Item label='' name='password' rules={[...rules.required]}>
+							<Form.Item
+								name='password'
+								rules={[
+									{ required: true, message: 'Vui lòng nhập mật khẩu!' },
+									{ min: 6, message: 'Mật khẩu phải chứa ít nhất 6 ký tự!' }
+								]}
+							>
 								<Input.Password
-									placeholder={intl.formatMessage({
-										id: 'pages.login.password.placeholder',
-										defaultMessage: 'Nhập mật khẩu',
-									})}
+									placeholder='Mật khẩu'
 									prefix={<LockOutlined className={styles.prefixIcon} />}
 									size='large'
+									style={{ borderRadius: '6px' }}
 								/>
 							</Form.Item>
 
-							<Button type='primary' block size='large' loading={submitting}>
-								{intl.formatMessage({
-									id: 'pages.login.submit',
-									defaultMessage: 'submit',
-								})}
-							</Button>
+							<div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+								<span style={{ color: '#8c8c8c', fontSize: '13px' }}>
+									Mẹo: <b>student@ptit.edu.vn</b> / <b>123456</b>
+								</span>
+								<Link to='/register' style={{ fontSize: '14px', fontWeight: 500 }}>
+									Đăng ký tài khoản
+								</Link>
+							</div>
+
+							<Form.Item>
+								<Button
+									type='primary'
+									htmlType='submit'
+									block
+									size='large'
+									loading={submitting}
+									style={{
+										height: '45px',
+										borderRadius: '6px',
+										fontSize: '16px',
+										fontWeight: 600,
+										boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+									}}
+								>
+									Đăng Nhập
+								</Button>
+							</Form.Item>
 						</Form>
-					) : null}
-
-					<br />
-					<div style={{ textAlign: 'center' }}>
-						<Button
-							onClick={() => {
-								window.open(keycloakAuthority + '/login-actions/reset-credentials');
-							}}
-							type='link'
-						>
-							Quên mật khẩu?
-						</Button>
-
-						{/* {type === 'accountAdmin' && visibleCaptcha && count >= 5 && (
-              <Recaptcha
-                ref={recaptchaRef}
-                size="normal"
-                sitekey="6LelHsEeAAAAAJmsVdeC2EPNCAVEtfRBUGSKireh"
-                render="explicit"
-                hl="vi"
-                // onloadCallback={callback}
-                verifyCallback={verifyCallback}
-              />
-            )}
-
-            {type === 'accountAdmin' && !visibleCaptcha && visibleCaptcha2 && count >= 5 && (
-              <Recaptcha
-                ref={recaptchaRef}
-                size="normal"
-                sitekey="6LelHsEeAAAAAJmsVdeC2EPNCAVEtfRBUGSKireh"
-                render="explicit"
-                hl="vi"
-                // onloadCallback={callback}
-                verifyCallback={verifyCallback}
-              />
-            )} */}
-					</div>
+					</Card>
 				</div>
 			</div>
 

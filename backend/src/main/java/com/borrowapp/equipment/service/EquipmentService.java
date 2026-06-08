@@ -10,6 +10,7 @@ import com.borrowapp.equipment.entity.Equipment;
 import com.borrowapp.equipment.repository.EquipmentRepository;
 import com.borrowapp.request.repository.BorrowRequestRepository;
 import com.borrowapp.request.entity.BorrowRequest;
+import com.borrowapp.request.dto.BorrowRequestResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -90,6 +91,16 @@ public class EquipmentService {
                         .endDate(r.getEndDate())
                         .quantity(maxConcurrentOn(r, approvedRequests))
                         .build())
+                .toList();
+    }
+
+    public List<BorrowRequestResponse> getBookings(Long equipmentId) {
+        equipmentRepository.findByIdAndIsDeletedFalse(equipmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thiết bị"));
+
+        return borrowRequestRepository.findByEquipmentIdAndStatus(equipmentId, RequestStatus.APPROVED)
+                .stream()
+                .map(BorrowRequestResponse::fromEntity)
                 .toList();
     }
 
@@ -178,20 +189,12 @@ public class EquipmentService {
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
-    /**
-     * Validate thiết bị tồn tại và chưa bị xóa.
-     */
     private Equipment validateEquipment(Long id) {
         return equipmentRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy thiết bị với id: " + id));
     }
 
-    /**
-     * Cập nhật totalQuantity và availableQuantity theo công thức delta.
-     * newAvailable = oldAvailable + (newTotal - oldTotal)
-     * Reject nếu newTotal < số đang APPROVED.
-     */
     private void updateStockWithDelta(Equipment equipment, int newTotal, String reason) {
         int oldTotal = equipment.getTotalQuantity();
         int oldAvailable = equipment.getAvailableQuantity();
@@ -214,8 +217,6 @@ public class EquipmentService {
         equipment.setTotalQuantity(newTotal);
         equipment.setAvailableQuantity(newAvailable);
     }
-
-    // ─── Private: booking helper (giữ nguyên) ─────────────────────────────────
 
     private long maxConcurrentOn(BorrowRequest target, List<BorrowRequest> allRequests) {
         return target.getStartDate()

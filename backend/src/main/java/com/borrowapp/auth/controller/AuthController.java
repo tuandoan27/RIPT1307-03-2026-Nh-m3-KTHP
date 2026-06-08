@@ -39,8 +39,16 @@ public class AuthController {
         return ResponseUtil.success("Lấy thông tin thành công", authService.getMe(email));
     }
 
+    @PutMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(email, request);
+        return ResponseUtil.success("Đổi mật khẩu thành công");
+    }
+
     @GetMapping("/hash")
-public String hash() {
-    return passwordEncoder.encode("123456");
-}
+    public String hash() {
+        return passwordEncoder.encode("123456");
+    }
 }

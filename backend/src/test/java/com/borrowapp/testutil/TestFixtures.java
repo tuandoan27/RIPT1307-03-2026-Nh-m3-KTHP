@@ -7,7 +7,8 @@ import com.borrowapp.notification.entity.NotificationLog;
 import com.borrowapp.notification.enums.NotificationLogStatus;
 import com.borrowapp.notification.enums.NotificationStatus;
 import com.borrowapp.notification.enums.NotificationType;
-import com.borrowapp.user.entity.User;
+
+import java.time.LocalDateTime;
 
 /**
  * Central fixture factory – giữ test data nhất quán qua toàn bộ test suite.
@@ -20,17 +21,13 @@ public final class TestFixtures {
 
     /**
      * Tạo một ActivityLog có actor (user hợp lệ).
-     * ActivityLog.user là @ManyToOne(User) → phải truyền User object.
+     * ActivityLog dùng raw userId/userName (không có @ManyToOne User).
      */
     public static ActivityLog activityLog(Long id, ActivityLogAction action) {
-        User user = User.builder()
-                .id(1L)
-                .fullName("admin")
-                .build();
-
         return ActivityLog.builder()
                 .id(id)
-                .user(user)
+                .userId(1L)
+                .userName("admin")
                 .action(action)
                 .targetType("REQUEST")
                 .targetId(100L)
@@ -39,12 +36,13 @@ public final class TestFixtures {
     }
 
     /**
-     * Tạo một ActivityLog system action (không có actor, user = null).
+     * Tạo một ActivityLog system action (không có actor, userId = null).
      */
     public static ActivityLog systemLog(Long id) {
         return ActivityLog.builder()
                 .id(id)
-                .user(null)          // system action – không có user
+                .userId(null)
+                .userName("SYSTEM")
                 .action(ActivityLogAction.MARK_OVERDUE)
                 .targetType("REQUEST")
                 .targetId(200L)

@@ -1,0 +1,86 @@
+.status-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 12px;
+	font-size: 13px;
+	font-weight: 550;
+	border-radius: 100px;
+	border: 1px solid transparent;
+	line-height: 1.2;
+	vertical-align: middle;
+	white-space: nowrap;
+	transition: all 0.3s ease;
+
+	.status-dot {
+		display: inline-block;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		margin-right: 8px;
+	}
+
+	.status-text {
+		font-family: inherit;
+		letter-spacing: 0.2px;
+	}
+
+	// 1. PENDING (Chờ duyệt)
+	&.status-pending {
+		background-color: #fff7e6;
+		border-color: #ffe7ba;
+		color: #d48806;
+
+		.status-dot {
+			background-color: #d48806;
+			box-shadow: 0 0 4px rgba(212, 136, 6, 0.4);
+		}
+	}
+
+	// 2. APPROVED (Đã duyệt)
+	&.status-approved {
+		background-color: #f6ffed;
+		border-color: #b7eb8f;
+		color: #389e0d;
+
+		.status-dot {
+			background-color: #389e0d;
+			box-shadow: 0 0 4px rgba(56, 158, 13, 0.4);
+		}
+	}
+
+	// 3. REJECTED (Từ chối)
+	&.status-rejected {
+		background-color: #fff1f0;
+		border-color: #ffa39e;
+		color: #cf1322;
+
+		.status-dot {
+			background-color: #cf1322;
+			box-shadow: 0 0 4px rgba(207, 19, 34, 0.4);
+		}
+	}
+
+	// 4. RETURNED (Trả lại)
+	&.status-returned {
+		background-color: #e6f7ff;
+		border-color: #91d5ff;
+		color: #096dd9;
+
+		.status-dot {
+			background-color: #096dd9;
+			box-shadow: 0 0 4px rgba(9, 109, 217, 0.4);
+		}
+	}
+
+	// 5. OVERDUE (Quá hạn)
+	&.status-overdue {
+		background-color: #f9f0ff;
+		border-color: #d3adf7;
+		color: #531dab;
+
+		.status-dot {
+			background-color: #531dab;
+			box-shadow: 0 0 4px rgba(83, 29, 171, 0.4);
+		}
+	}
+}

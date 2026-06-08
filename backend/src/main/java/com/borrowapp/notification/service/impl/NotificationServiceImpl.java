@@ -42,7 +42,9 @@ public class NotificationServiceImpl implements NotificationService {
                                NotificationType type,
                                String title, String message, String link,
                                String emailSubject, String emailHtmlBody) {
+        // 1. Lưu notification in-app (sync)
         saveNotification(recipientId, recipientEmail, type, title, message, link);
+        // 2. Gửi email async (fire and forget)
         emailService.sendAsync(recipientEmail, emailSubject, emailHtmlBody);
     }
 
@@ -119,6 +121,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void retryEmail(Long notificationLogId) {
+        // Kiểm tra tồn tại trước khi giao async
         logRepo.findById(notificationLogId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "NotificationLog not found: " + notificationLogId));

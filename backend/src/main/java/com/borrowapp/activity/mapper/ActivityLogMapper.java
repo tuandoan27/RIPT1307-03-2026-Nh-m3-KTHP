@@ -10,9 +10,8 @@ public class ActivityLogMapper {
     public ActivityLogResponse toResponse(ActivityLog log) {
         return ActivityLogResponse.builder()
                 .id(log.getId())
-                .performedBy(log.getUser() != null
-                        ? log.getUser().getFullName()
-                        : "System")
+                .userId(log.getUserId())
+                .userName(log.getUserName() != null ? log.getUserName() : "SYSTEM")
                 .action(log.getAction())
                 .targetType(log.getTargetType())
                 .targetId(log.getTargetId())

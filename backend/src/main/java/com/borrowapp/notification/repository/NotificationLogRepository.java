@@ -15,7 +15,11 @@ public interface NotificationLogRepository extends JpaRepository<NotificationLog
     Page<NotificationLog> findByStatusOrderByCreatedAtDesc(
             NotificationLogStatus status, Pageable pageable);
 
+    /**
+     * Lấy danh sách email FAILED chưa vượt quá maxRetry – dùng cho scheduler.
+     */
     @Query("SELECT n FROM NotificationLog n WHERE n.status = 'FAILED' AND n.retryCount < :maxRetry ORDER BY n.createdAt ASC")
     List<NotificationLog> findRetryable(@Param("maxRetry") int maxRetry, Pageable pageable);
+
     Page<NotificationLog> findByStatus(NotificationLogStatus status, Pageable pageable);
 }

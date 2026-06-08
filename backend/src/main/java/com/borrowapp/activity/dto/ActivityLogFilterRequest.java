@@ -14,13 +14,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class ActivityLogFilterRequest {
 
-    private int page = 1;
-    private int pageSize = 20;
-
-    private ActivityLogAction action;
     private Long userId;
-
-    // ─── Dùng cho getLogs() cũ (findWithFilters) ─────────────────────────────
+    private ActivityLogAction action;
     private String targetType;
     private Long targetId;
 
@@ -36,4 +31,7 @@ public class ActivityLogFilterRequest {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate endDate;
+
+    private int page     = 0;
+    private int pageSize = 20;
 }

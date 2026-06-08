@@ -1,0 +1,52 @@
+.container {
+	padding: 24px;
+	max-width: 800px;
+	margin: 0 auto;
+
+	:global(.ant-card) {
+		border-radius: 8px;
+	}
+}
+
+.notificationItem {
+	border-left: 3px solid transparent;
+	transition: all 0.3s ease;
+
+	&:hover {
+		background-color: #fafafa !important;
+		transform: translateX(4px);
+	}
+
+	&.unread {
+		border-left-color: #1890ff;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	}
+}
+
+.title {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+}
+
+.pagination {
+	display: flex;
+	justify-content: center;
+	margin-top: 24px;
+
+	:global(.ant-pagination) {
+		margin: 0;
+	}
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: 12px;
+	}
+
+	.title {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}

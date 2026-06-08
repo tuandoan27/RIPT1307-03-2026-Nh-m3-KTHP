@@ -15,6 +15,8 @@ import java.util.List;
 
 public interface BorrowRequestRepository extends JpaRepository<BorrowRequest, Long> {
 
+    List<BorrowRequest> findByEquipmentIdAndStatus(Long equipmentId, RequestStatus status);
+
     // ── Overlap check (tạo request) ───────────────────────────────────────
     long countByEquipmentIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Long equipmentId,

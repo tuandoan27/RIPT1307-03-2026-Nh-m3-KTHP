@@ -25,13 +25,14 @@ public class NotificationMapper {
     public NotificationLogResponse toLogResponse(NotificationLog l) {
         return NotificationLogResponse.builder()
                 .id(l.getId())
-                .recipient(l.getToEmail())      // toEmail → recipient
+                .toEmail(l.getToEmail())
+                .recipient(l.getToEmail())   // alias
                 .subject(l.getSubject())
                 .status(l.getStatus())
                 .retryCount(l.getRetryCount())
                 .errorMessage(l.getErrorMessage())
                 .createdAt(l.getCreatedAt())
-                // updatedAt đã bỏ — không có trong NotificationLogResponse
+                .updatedAt(l.getUpdatedAt())
                 .build();
     }
 }

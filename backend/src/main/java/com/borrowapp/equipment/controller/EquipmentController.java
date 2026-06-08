@@ -111,4 +111,9 @@ public class EquipmentController {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Admin không tồn tại: " + email));
     }
+    @GetMapping("/{id}/bookings")
+    public ResponseEntity<ApiResponse<java.util.List<com.borrowapp.request.dto.BorrowRequestResponse>>> getBookings(
+            @PathVariable Long id) {
+        return ResponseUtil.success("Lấy danh sách đặt lịch thành công", equipmentService.getBookings(id));
+    }
 }
