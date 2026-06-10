@@ -1,36 +1,27 @@
-# WEB BASE V3
+Frontend (Netlify): https://borrowapp-fe.netlify.app/
 
-## Web base v3 based on:
+Hướng dẫn cài đặt và chạy dự án
 
-- React 17, umijs, antd v4
-- TypeScript
-- SSO with Keycloak
-- Back-end: NestJS, PostgreSQL
+Yêu cầu
+Java 17+
+PostgreSQL 16+
+Node.js 18+
 
-This project is initialized with [Web Base](https://pro.ant.design). Follow is the quick guide for how to use.
+1. Database
+Mở pgAdmin, tạo database tên borrowapp
+Chuột phải vào borrowapp → Restore → chọn file database/dump.sql → Restore
 
-## Environment Prepare
+2. Backend
+Mở file backend/src/main/resources/application.properties, sửa password PostgreSQL:
 
-Install `node_modules`:
+spring.datasource.password=your_password
+Chạy:
 
-```bash
-yarn
-```
+cd backend
+.\mvnw.cmd spring-boot:run -DskipTests
+Backend chạy tại: http://localhost:8080
 
-## Provided Scripts
+Tài khoản demo
 
-RIPT S-Link provides some useful script to help you quick start and build with web project, code style check and test.
-
-Scripts provided in `package.json`. It's safe to modify or add additional script:
-
-### Start project
-
-```bash
-yarn start
-```
-
-### Build project
-
-```bash
-yarn build
-```
+Admin	admin@gmail.com	123456
+Sinh viên	đăng ký tài khoản
