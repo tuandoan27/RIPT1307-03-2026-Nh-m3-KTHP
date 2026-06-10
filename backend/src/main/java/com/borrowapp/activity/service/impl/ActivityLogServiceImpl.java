@@ -1,19 +1,24 @@
 package com.borrowapp.activity.service.impl;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.borrowapp.activity.dto.ActivityLogFilterRequest;
 import com.borrowapp.activity.dto.ActivityLogResponse;
 import com.borrowapp.activity.entity.ActivityLog;
 import com.borrowapp.activity.mapper.ActivityLogMapper;
 import com.borrowapp.activity.repository.ActivityLogRepository;
+import com.borrowapp.activity.repository.ActivityLogSpecification;
 import com.borrowapp.activity.service.ActivityLogService;
 import com.borrowapp.common.constants.ActivityLogAction;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -23,10 +28,6 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     private final ActivityLogRepository repo;
     private final ActivityLogMapper     mapper;
 
-    /**
-     * REQUIRES_NEW: log ghi trong transaction độc lập.
-     * Dù outer transaction rollback, log vẫn được lưu.
-     */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(Long actorId, String actorName, ActivityLogAction action,
@@ -42,7 +43,6 @@ public class ActivityLogServiceImpl implements ActivityLogService {
                     .build();
             repo.save(entry);
         } catch (Exception ex) {
-            // Không ném exception – chỉ log lỗi nội bộ để không ảnh hưởng luồng chính
             log.error("[ActivityLog] Failed to persist log | action={} targetType={} targetId={} | err={}",
                     action, targetType, targetId, ex.getMessage(), ex);
         }
@@ -58,18 +58,29 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     @Override
     @Transactional(readOnly = true)
     public Page<ActivityLogResponse> getLogs(ActivityLogFilterRequest filter) {
+        // Frontend gửi page bắt đầu từ 1, Spring bắt đầu từ 0
+        int zeroBasedPage = Math.max(filter.getPage() - 1, 0);
+        int pageSize      = Math.min(Math.max(filter.getPageSize(), 1), 200);
+
         PageRequest pageable = PageRequest.of(
-                Math.max(filter.getPage(), 0),
-                Math.min(Math.max(filter.getPageSize(), 1), 100)
+                zeroBasedPage,
+                pageSize,
+                Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        return repo.findWithFilters(
-                filter.getUserId(),
+
+        // Dùng Specification thay JPQL để tránh lỗi PostgreSQL
+        // "could not determine data type of parameter" khi tham số null
+        Specification<ActivityLog> spec = ActivityLogSpecification.withFilter(
                 filter.getAction(),
-                filter.getTargetType(),
-                filter.getTargetId(),
+                filter.getUserId(),
                 filter.getFrom(),
                 filter.getTo(),
-                pageable
-        ).map(mapper::toResponse);
+                filter.getStartDate(),
+                filter.getEndDate(),
+                filter.getTargetType(),
+                filter.getTargetId()
+        );
+
+        return repo.findAll(spec, pageable).map(mapper::toResponse);
     }
 }

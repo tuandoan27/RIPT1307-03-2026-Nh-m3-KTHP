@@ -39,9 +39,12 @@ const UserMenu = (
       icon={<LogoutOutlined />}
       danger
       onClick={() => {
-        localStorage.removeItem('access_token');
-        history.push('/user/login');
-      }}
+    localStorage.removeItem('token');
+    localStorage.removeItem('mockUser');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userInfo');
+    history.replace('/login');
+}}
     >
       Đăng xuất
     </Menu.Item>
